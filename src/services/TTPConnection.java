@@ -38,6 +38,7 @@ public class TTPConnection {
     protected Timer clock;
     protected ConcurrentSkipListMap<Integer,Datagram> unacknowledgedPackets;
     protected LinkedList<Datagram> sendBuffer;
+    protected boolean connClosed;
 
     public static final int SYN = 0;
     public static final int ACK = 1;
@@ -58,7 +59,7 @@ public class TTPConnection {
 
         this.time = time;
 
-        
+        connClosed = false;
 
         Random rand = new Random();
         nextSeqNum = rand.nextInt(65536);
@@ -267,7 +268,7 @@ public class TTPConnection {
      * @throws IOException
      */
     
-    public void send(byte[] data) throws IOException {
+    public int send(byte[] data) throws IOException {
         int lengthOfData = data.length;
         byte[] fragment = null;
         int dataCounter = 0;
@@ -289,6 +290,8 @@ public class TTPConnection {
                     while(nextSeqNum >= base + N){
                         try {
                             receive();
+                            if(connClosed == true)
+                                return -1;
                         } catch (ClassNotFoundException e) {
                             // TODO Auto-generated catch block
                             e.printStackTrace();
@@ -307,6 +310,7 @@ public class TTPConnection {
                 while(nextSeqNum >= base + N){
                     try {
                         receive();
+                        return -1;
                     } catch (ClassNotFoundException e) {
                         // TODO Auto-generated catch block
                         e.printStackTrace();
@@ -315,6 +319,7 @@ public class TTPConnection {
                 fragment = data.clone();
                 encapsulate(fragment, true);
             }
+            return data.length;
         
     }
 
@@ -453,6 +458,9 @@ public class TTPConnection {
                 clock.restart();
                 unacknowledgedPackets.put(nextSeqNum, new Datagram(datagram.getSrcaddr(), datagram.getDstaddr(), datagram.getSrcport(), datagram.getDstport(), datagram.getSize(), datagram.getChecksum(), datagram.getData()));
                 nextSeqNum++;
+                //far end close the connection, just return a null to let app layer to konw that
+                connClosed = true;
+                return null;
             }
             if(data[8]== (byte)3) {
                 acknNum = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
@@ -463,6 +471,8 @@ public class TTPConnection {
                 if (ds!=null) {
                     sendFinackAcknowledgement();
                 }
+                connClosed = true;
+                return null;
             }
             if(base == nextSeqNum) {
                 clock.stop();

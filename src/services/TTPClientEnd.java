@@ -68,7 +68,7 @@ public class TTPClientEnd extends TTPConnection {
         System.out.println("SYN sent to " + datagram.getDstaddr() + ":" + datagram.getDstport() + " with ISN " + nextSeqNum);
 
         base = nextSeqNum;
-        clock.start();
+        
         
         nextSeqNum++;
         while(true){
@@ -80,6 +80,7 @@ public class TTPClientEnd extends TTPConnection {
                 expectedSeqNum =  acknNum + 1;
                 base = byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}) + 1;
                 System.out.println("Received SYNACK with seq no:" + acknNum + " and Acknowledgement No " + (base-1));
+                
                 sendSYNAcknowledgement();
                 changeClockListener();
                 return;
