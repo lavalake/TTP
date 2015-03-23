@@ -49,7 +49,7 @@ public class TTPConnection {
     public static final int DATA = 0;
     
     public static final int FLAG = 8;
-    public static final int MAXLEN = 1281;
+    public static final int MAXLEN = 1291;
     public static final int HEADERLEN = 9;
 
     public TTPConnection(int N, int time) {

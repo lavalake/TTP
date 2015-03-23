@@ -84,6 +84,7 @@ public void open(int srcPort, int ver){
                     datagram.setData(fillHeader(TTPConnection.SYNACK));
                     datagram.setChecksum((short)-1);
                     this.ds.sendDatagram(datagram);
+                    //start the timer for SYNACK
                     server_endPoint.startClock();
                     
                     System.out.println("SYNACK sent to " + datagram.getDstaddr() + ":" + datagram.getDstport() + " with Seq no " + nextSeq);
