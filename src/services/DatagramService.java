@@ -17,6 +17,9 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Random;
 
 import datatypes.Datagram;
 
@@ -25,6 +28,7 @@ public class DatagramService {
 	private int port;
 	private int verbose;
 	private DatagramSocket socket;
+    private ArrayList<DatagramPacket> bufferPacket;
 
 	public DatagramService(int port, int verbose) throws SocketException {
 		super();
@@ -41,14 +45,53 @@ public class DatagramService {
 		oStream.writeObject(datagram);
 		oStream.flush();
 
+        //Creating random number for testing different situations
+        Random numGenerator = new Random();
+        int num = numGenerator.nextInt(10);
+
 		// Create Datagram Packet
 		byte[] data = bStream.toByteArray();
 		InetAddress IPAddress = InetAddress.getByName(datagram.getDstaddr());
+
+        //Testing for packet corruption
+        if (num == 1) {
+            data[data.length - 1] = (byte) (data[data.length - 1] ^ 1);
+            System.out.println("Testing for packet corruption");
+        }
+
 		DatagramPacket packet = new DatagramPacket(data, data.length,
 				IPAddress, datagram.getDstport());
 
-		// Send packet
-		socket.send(packet);
+        // Testing for delay packet
+        if (num == 2){
+            int randomNum = numGenerator.nextInt(10);
+            delayPacket(packet, randomNum * 1000 + 3000);
+            System.out.println("Testing for delay packet, delaying" + randomNum + "seconds");
+        }
+		// Testing for duplicate packet
+        if (num == 3) {
+            int randomNum = numGenerator.nextInt(10);
+            duplicatePacket(packet, randomNum);
+            System.out.println("Testing for duplicate packet, duplicating" + randomNum + "times");
+        }
+
+        //Testing for packet drop
+        if (num == 4)
+            System.out.println("Testing for packet drop");
+        else if (num == 5 ){
+            if (bufferPacket != null){
+                System.out.println("Testing for packet corruption");
+                bufferPacket.add(packet);
+                Collections.shuffle(bufferPacket);
+                for (DatagramPacket p : bufferPacket)
+                    socket.send(p);
+                bufferPacket = null;
+            } else
+                socket.send(packet);
+        }
+        else
+            //Store packet to arraylist to do out-of-order deliveries testing
+            bufferPacket.add(packet);
 	}
 
 	public Datagram receiveDatagram() throws IOException,
@@ -66,4 +109,24 @@ public class DatagramService {
 
 		return datagram;
 	}
+
+    protected void delayPacket(DatagramPacket packet, int delay){
+        try {
+            Thread.sleep(delay);
+            socket.send(packet);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    protected void duplicatePacket(DatagramPacket packet, int duplicate){
+        for (int i = 0; i < duplicate; i++)
+            try {
+                socket.send(packet);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+    }
 }

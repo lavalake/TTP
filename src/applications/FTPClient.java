@@ -14,81 +14,86 @@ import services.*;
 
 public class FTPClient {
 
-	/**
-	 * @param args
-	 */
 	public static void main(String[] args) {
 
-		int dstPort = 2221;
-		int srcPort = 2000;
-		
-		String srcAddr = "127.0.0.1";
-		String dstAddr = "127.0.0.1";
-		
-		
+        TTPClientEnd client = new TTPClientEnd(Integer.parseInt(args[0]), Integer.parseInt(args[1]));
 
-		TTPClientEnd client = new TTPClientEnd(Integer.parseInt(args[0]),Integer.parseInt(args[1]));
+//        System.out.println("Enter source address and port number (e.g 127.0.0.1:2000)");
+//        String[] src = args[2].split(":");
+//        String srcAddr = src[0];
+//        int srcPort = Integer.parseInt(src[1]);
+//
+//        System.out.println("Enter destination address and port number (e.g 127.0.0.1:2221)");
+//        String[] dst = args[3].split(":");
+//        String dstAddr = dst[0];
+//        int dstPort = Integer.parseInt(dst[1]);
+//
+//		String srcAddr = "128.237.170.112";
+//		String dstAddr = "128.237.222.58";
+        String srcAddr = "127.0.0.1";
+        String dstAddr = "127.0.0.1";
+        int dstPort = 2221;
+        int srcPort = 2000;
+//
+		System.out.println("Enter the request file name");
+		Scanner requestFile = new Scanner(System.in);
+		String fileName = requestFile.nextLine();
+		String path = System.getProperty("user.dir") + "/ClientFiles/";
 		
 		try {
-			client.open(srcAddr, dstAddr, (short)Integer.parseInt(args[2]), (short)dstPort, 10);
-			System.out.println("\nEstablised connection to FTP Server at " + dstAddr + ":" + dstPort);
-			while(true){
-    			System.out.println("Enter file name");
-    	        Scanner readfile = new Scanner(System.in);
-    	        String fileName = readfile.nextLine();
-    	        String path = System.getProperty("user.dir") + "/ClientFiles/";
-    	        
-    	        byte[] hashIndicator = "MD5-HASH".getBytes();
-    	        byte[] startBytes = new byte[hashIndicator.length];
-    	        byte[] md5hashRecd = new byte[16];
-    			System.out.println("get file "+fileName.getBytes());	
-    			client.send(fileName.getBytes());
-    			
-    			boolean listening = true;
-			
-				byte[] data1 = client.receive();
-				System.out.println("FTP client get data");
-				if (data1!=null) {
-					System.arraycopy(data1, 0, startBytes, 0, hashIndicator.length);	
-					
-					if (Arrays.equals(startBytes, hashIndicator)) {
-					    System.out.println("FTP client get md5 ");
-						System.arraycopy(data1, startBytes.length, md5hashRecd, 0, 16);
-					} 
-					    byte[] data = client.receive();
-						System.out.println("FTP Client received file!");
+			client.open(srcAddr, dstAddr, (short)srcPort, (short)dstPort, 10);
+			System.out.println("Connect to FTP Server (" + dstAddr + ":" + dstPort + ")");
 
-						MessageDigest md = MessageDigest.getInstance("MD5");
-						byte[] md5HashComputed = md.digest(data);
+            client.send(fileName.getBytes());
+            System.out.println("Send request to get "+fileName.getBytes());
 
-						if (Arrays.equals(md5HashComputed,md5hashRecd)) {
-							System.out.println("MD5 Hash verified!!");
-							File f = new File(path + fileName);
-							System.out.println("FTP client write to " + path + fileName);
-							
-							f.createNewFile();
-							FileOutputStream fs = new FileOutputStream(f);
-							BufferedOutputStream bs = new BufferedOutputStream(fs);
-							bs.write(data);
-							bs.close();
-							bs = null;
-							
-						} else {
-							System.out.println("Error in file received! MD5 digest does not match!");
-							System.out.println("cal md5 " + md5HashComputed);
-							for(int i =0; i<md5HashComputed.length; i++)
-							    System.out.println(md5HashComputed[i] + " ");
-							System.out.println("rec md5 " + md5hashRecd);
-							for(int i =0; i<md5hashRecd.length; i++)
-                                System.out.println(md5hashRecd[i] + " ");
-						}
-						client.close();
-						
-									
-				}
-			}			
+            //receive first message (MD5 or error)
+            byte[] msgReceived = client.receive();
+
+            //receive file-not-existed error message
+            if (Arrays.equals(msgReceived, "FileNotExisted".getBytes())){
+                System.out.println("Requested File not existed");
+            }
+            //receive md5 hash code
+            else if (msgReceived != null){
+                System.out.println("Received md5 hash");
+
+                //receive file date
+                byte[] data = client.receive();
+                if (data != null){
+                    System.out.println("Received file and start to check md5");
+
+                    MessageDigest complete = MessageDigest.getInstance("MD5");
+                    byte[] md5Check = complete.digest(data);
+
+                    //check and verify md5
+                    if (Arrays.equals(md5Check, msgReceived)){
+                        System.out.println("md5 checked and validated");
+                        File newFile = new File(path + fileName);
+                        FileOutputStream fs = new FileOutputStream(newFile);
+                        BufferedOutputStream bs = new BufferedOutputStream(fs);
+                        bs.write(data);
+                        bs.close();
+                        System.out.println("File received");
+                    }
+                    else {
+                        //md5 does not match
+                        System.out.println("md5 does not match");
+                        System.out.println("cal md5 " + md5Check);
+                        for (int i = 0; i < md5Check.length; i++)
+                            System.out.println(md5Check[i] + " ");
+                        System.out.println("rec md5 " + msgReceived);
+                        for (int i = 0; i < msgReceived.length; i++)
+                            System.out.println(msgReceived[i] + " ");
+                    }
+                }
+            }
+
+            System.out.println("Client closes");
+            client.close();
+
 		} catch (EOFException e) {
-			System.out.println("EOF Exception!! Perhaps you are using the CMU network? Appears to work fine on all other networks we tested and on localhost! Test a text file instead e.g. Sample1.txt!");
+			e.printStackTrace();
 		} catch (IOException e) {
 			e.printStackTrace();
 		} catch (ClassNotFoundException e) {
