@@ -18,22 +18,22 @@ public class FTPClient {
 
         TTPClientEnd client = new TTPClientEnd(Integer.parseInt(args[0]), Integer.parseInt(args[1]));
 
-//        System.out.println("Enter source address and port number (e.g 127.0.0.1:2000)");
-//        String[] src = args[2].split(":");
-//        String srcAddr = src[0];
-//        int srcPort = Integer.parseInt(src[1]);
-//
-//        System.out.println("Enter destination address and port number (e.g 127.0.0.1:2221)");
-//        String[] dst = args[3].split(":");
-//        String dstAddr = dst[0];
-//        int dstPort = Integer.parseInt(dst[1]);
+        System.out.println("Enter source address and port number (e.g 127.0.0.1:2000)");
+        String[] src = args[2].split(":");
+        String srcAddr = src[0];
+        int srcPort = Integer.parseInt(src[1]);
+
+        System.out.println("Enter destination address and port number (e.g 127.0.0.1:2221)");
+        String[] dst = args[3].split(":");
+        String dstAddr = dst[0];
+        int dstPort = Integer.parseInt(dst[1]);
 //
 //		String srcAddr = "128.237.170.112";
 //		String dstAddr = "128.237.222.58";
-        String srcAddr = "127.0.0.1";
-        String dstAddr = "127.0.0.1";
-        int dstPort = 2221;
-        int srcPort = 2000;
+//        String srcAddr = "127.0.0.1";
+//        String dstAddr = "127.0.0.1";
+//        int dstPort = 2221;
+//        int srcPort = 2000;
 
 		System.out.println("Enter the request file name");
 		Scanner requestFile = new Scanner(System.in);
