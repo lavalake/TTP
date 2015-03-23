@@ -5,11 +5,13 @@ import java.awt.event.ActionListener;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Map.Entry;
 import java.util.Random;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 
 import javax.swing.Timer;
@@ -36,24 +38,29 @@ public class TTPConnection {
     protected int nextFragment;
     protected int time;
     protected Timer clock;
-    protected ConcurrentSkipListMap<Integer,Datagram> unacknowledgedPackets;
-    protected LinkedList<Datagram> sendBuffer;
+    protected ConcurrentSkipListMap<Integer,Datagram> unackedPackets;
+    
     protected boolean connClosed;
 
-    public static final int SYN = 0;
-    public static final int ACK = 1;
-    public static final int FIN = 2;
-    public static final int DATA = 3;
-    public static final int EOFDATA = 4;
-    public static final int SYNACK = 5;
-    public static final int FINACK = 6;
-    public static final int FINACKACK = 7;
+    
+    public static final int FIN = 1;
+    public static final int ACK = 2;
+    public static final int FINACK = 3;
+    public static final int SYN = 4;
+    public static final int SYNACK = 6;
+    public static final int END = 8;    
+    public static final int FINACKACK = 16;
+    public static final int DATA = 0;
+    
+    public static final int FLAG = 8;
+    public static final int MAXLEN = 1281;
+    public static final int HEADERLEN = 9;
 
     public TTPConnection(int N, int time) {
         datagram = new Datagram();
         recdDatagram = new Datagram();
-        unacknowledgedPackets = new ConcurrentSkipListMap<Integer,Datagram>();
-        sendBuffer = new LinkedList<Datagram>();
+        unackedPackets = new ConcurrentSkipListMap<Integer,Datagram>();
+        
 
         this.N = N;
 
@@ -126,10 +133,11 @@ public class TTPConnection {
      * @param flags
      * @return
      */
-    protected byte[] createPayloadHeader(int flags) {
-        byte[] header = new byte[9];
+    protected byte[] fillHeader(int flags) {
         byte[] isnBytes = ByteBuffer.allocate(4).putInt(nextSeqNum).array();
         byte[] ackBytes = ByteBuffer.allocate(4).putInt(acknNum).array();
+        byte[] header = new byte[9];
+        
 
         switch (flags) {
         case SYN:
@@ -139,7 +147,27 @@ public class TTPConnection {
             for (int i = 4; i < 8; i++) {
                 header[i] = (byte) 0;
             }
-            header[8] = (byte) 4;
+            header[8] = (byte) SYN;
+            break;
+            
+        case SYNACK:
+            for (int i = 0; i < 4; i++) {
+                header[i] = isnBytes[i];
+            }
+            for (int i = 4; i < 8; i++) {
+                header[i] = ackBytes[i - 4];
+            }
+            header[FLAG] = (byte) SYNACK;
+            break;
+            
+        case DATA:
+            for (int i = 0; i < 4; i++) {
+                header[i] = isnBytes[i];
+            }
+            for (int i = 4; i < 8; i++) {
+                header[i] = (byte) 0;
+            }
+            header[8] = (byte) DATA;
             break;
 
         case ACK:
@@ -149,7 +177,17 @@ public class TTPConnection {
             for (int i = 4; i < 8; i++) {
                 header[i] = ackBytes[i - 4];
             }
-            header[8] = (byte) 2;
+            header[8] = (byte) ACK;
+            break;
+            
+        case END:
+            for (int i = 0; i < 4; i++) {
+                header[i] = isnBytes[i];
+            }
+            for (int i = 4; i < 8; i++) {
+                header[i] = (byte) 0;
+            }
+            header[FLAG] = (byte) END;
             break;
 
         case FIN:
@@ -159,37 +197,7 @@ public class TTPConnection {
             for (int i = 4; i < 8; i++) {
                 header[i] = (byte) 0;
             }
-            header[8] = (byte) 1;
-            break;
-
-        case DATA:
-            for (int i = 0; i < 4; i++) {
-                header[i] = isnBytes[i];
-            }
-            for (int i = 4; i < 8; i++) {
-                header[i] = (byte) 0;
-            }
-            header[8] = (byte) 0;
-            break;
-
-        case EOFDATA:
-            for (int i = 0; i < 4; i++) {
-                header[i] = isnBytes[i];
-            }
-            for (int i = 4; i < 8; i++) {
-                header[i] = (byte) 0;
-            }
-            header[8] = (byte) 8;
-            break;
-
-        case SYNACK:
-            for (int i = 0; i < 4; i++) {
-                header[i] = isnBytes[i];
-            }
-            for (int i = 4; i < 8; i++) {
-                header[i] = ackBytes[i - 4];
-            }
-            header[8] = (byte) 6;
+            header[8] = (byte) FIN;
             break;
 
         case FINACK:
@@ -200,7 +208,7 @@ public class TTPConnection {
             for (int i = 4; i < 8; i++) {
                 header[i] = ackBytes[i - 4];
             }
-            header[8] = (byte) 3;
+            header[8] = (byte) FINACK;
             break;
 
         case FINACKACK:
@@ -210,7 +218,7 @@ public class TTPConnection {
             for (int i = 4; i < 8; i++) {
                 header[i] = ackBytes[i - 4];
             }
-            header[8] = (byte) 16;
+            header[FLAG] = (byte) FINACKACK;
             break;
         }
         return header;
@@ -224,31 +232,32 @@ public class TTPConnection {
      * @throws IOException
      */
     
-    protected short calculateChecksum(byte[] payload) throws IOException {
-        int length = payload.length;
-        int i = 0;
+    protected short calcChecksum(byte[] payload) throws IOException {
+        int j = 0, sum=0;
 
-        int sum = 0;
-        int data, firstByte, secondByte;
+        int len = payload.length;
+        
+        int temp;
+        int first, second;
 
-        while (length > 1) {
-            firstByte = (payload[i] << 8) & 0xFF00;
-            secondByte = (payload[i + 1]) & 0xFF;
+        for(;len > 1;len=len-2) {
+            first = (payload[j] << 8) & 0xFF00;
+            second = (payload[j + 1]) & 0xFF;
 
-            data = firstByte | secondByte;
-            sum += data;
+            temp = first | second;
+            sum += temp;
 
             if ((sum & 0xFFFF0000) > 0) {
                 sum = sum & 0xFFFF;
                 sum += 1;
             }
 
-            i += 2;
-            length -= 2;
+            j += 2;
+            
         }
 
-        if (length > 0) {
-            sum += (payload[i] << 8 & 0xFF00);
+        if (len > 0) {
+            sum += (payload[j] << 8 & 0xFF00);
             if ((sum & 0xFFFF0000) > 0) {
                 sum = sum & 0xFFFF;
                 sum += 1;
@@ -259,77 +268,22 @@ public class TTPConnection {
         sum = sum & 0xFFFF;
         return (short) sum;
     }
+    private void sendFmt(Datagram datagram) throws IOException {
+        ds.sendDatagram(datagram);
+        System.out.println("Data sent to " + datagram.getDstaddr() + ":" + datagram.getDstport() + " with Seq No " + nextSeqNum);
 
-    /**
-     * Takes a byte array of data, checks if the next sequence number is within the send window, 
-     * encapsulates the data and sends it.
-     * 
-     * @param data
-     * @throws IOException
-     */
-    
-    public int send(byte[] data) throws IOException {
-        int lengthOfData = data.length;
-        byte[] fragment = null;
-        int dataCounter = 0;
-        int currentCounter;
-        int indexController = 0;
-
-       
-            if (lengthOfData > 1281) {
-
-                do {
-                    currentCounter = dataCounter;
-                    indexController = Math.min(lengthOfData , 1281);
-                    fragment = new byte[indexController];
-
-                    for (int i = currentCounter; i < currentCounter + indexController; dataCounter++, i++) {
-                        fragment[i % 1281] = data[i];
-                    }
-                    //need to wait for the ack to move forward
-                    while(nextSeqNum >= base + N){
-                        try {
-                            receive();
-                            if(connClosed == true)
-                                return -1;
-                        } catch (ClassNotFoundException e) {
-                            // TODO Auto-generated catch block
-                            e.printStackTrace();
-                        }
-                    }
-                    if (lengthOfData > 1281)
-                        encapsulate(fragment, false);
-                    else
-                        encapsulate(fragment, true);
-
-                    lengthOfData -= 1281;
-
-                } while (lengthOfData > 0);
-            } else {
-              //need to wait for the ack to move forward
-                while(nextSeqNum >= base + N){
-                    try {
-                        receive();
-                        return -1;
-                    } catch (ClassNotFoundException e) {
-                        // TODO Auto-generated catch block
-                        e.printStackTrace();
-                    }
-                }
-                fragment = data.clone();
-                encapsulate(fragment, true);
-            }
-            return data.length;
         
-    }
 
-    private void encapsulate (byte[] fragment, boolean lastFragment) throws IOException {
+        unackedPackets.put(nextSeqNum, new Datagram(datagram.getSrcaddr(), datagram.getDstaddr(), datagram.getSrcport(), datagram.getDstport(), datagram.getSize(), datagram.getChecksum(), datagram.getData()));
+    }
+    
+    private void packPackage (byte[] fragment, boolean lastFragment) throws IOException {
 
         byte[] header = new byte[9];
         if (lastFragment) {
-            header = createPayloadHeader(TTPConnection.EOFDATA);
+            header = fillHeader(TTPConnection.END);
         } else {
-            header = createPayloadHeader(TTPConnection.DATA);
+            header = fillHeader(TTPConnection.DATA);
         }
 
         byte[] headerPlusData = new byte[fragment.length + header.length];
@@ -338,25 +292,96 @@ public class TTPConnection {
 
         datagram.setData(headerPlusData);
         datagram.setSize((short)headerPlusData.length);
-        datagram.setChecksum(calculateChecksum(headerPlusData));
+        datagram.setChecksum(calcChecksum(headerPlusData));
 
         
         
-            sendFragment(datagram);
+        sendFmt(datagram);
         
         nextSeqNum++;
     }
     
-    private void sendFragment(Datagram datagram) throws IOException {
-        ds.sendDatagram(datagram);
-        System.out.println("Data sent to " + datagram.getDstaddr() + ":" + datagram.getDstport() + " with Seq No " + nextFragment);
+    
 
-        if (base == nextSeqNum) {
-            clock.restart();
-        }
+    /**
+     * Takes an array of byte, send until the sending window is full, then call receive to move the window, 
+     * 
+     * @param data
+     * @throws IOException
+     */
+    
+    public int send(byte[] data) throws IOException {
+        
+        byte[] fragment = null;
+        int dataCounter = 0;
+        int currentCounter;
+        int indexController = 0;
+        int length = data.length;
 
-        unacknowledgedPackets.put(nextSeqNum, new Datagram(datagram.getSrcaddr(), datagram.getDstaddr(), datagram.getSrcport(), datagram.getDstport(), datagram.getSize(), datagram.getChecksum(), datagram.getData()));
+            clock.start();
+            if (length > MAXLEN) {
+
+                while (length > 0) {
+                    currentCounter = dataCounter;
+                    indexController = Math.min(length , MAXLEN);
+                    fragment = new byte[indexController];
+
+                    for (int i = currentCounter; i < currentCounter + indexController; dataCounter++, i++) {
+                        fragment[i % MAXLEN] = data[i];
+                    }
+                    //need to wait for the ack to move forward
+                    System.out.println("len " + length + " nextSeqNum" + nextSeqNum + " base" + base + " N" + N);
+                    while(nextSeqNum >= base + N){
+                        try {
+                            System.out.println("sending window full, start timer and wait for ack");
+                            
+                            receive();
+                            if(connClosed == true)
+                                return -1;
+                        } catch (ClassNotFoundException e) {
+                            // TODO Auto-generated catch block
+                            e.printStackTrace();
+                        }
+                    }
+                    if (length > MAXLEN)
+                        packPackage(fragment, false);
+                    else
+                        packPackage(fragment, true);
+
+                    length -= MAXLEN;
+
+                }
+            } else {
+              //need to wait for the ack to move forward
+                while(nextSeqNum >= base + N){
+                    try {
+                        System.out.println("reach full send window " + nextSeqNum +" "+ base + " " + N);
+                        receive();
+                        return -1;
+                    } catch (ClassNotFoundException e) {
+                        // TODO Auto-generated catch block
+                        e.printStackTrace();
+                    }
+                }
+                
+                packPackage(data, true);
+            }
+            System.out.println("has send all packets and wait for the ack");
+            try {
+                while(true){
+                    receive();
+                    if(unackedPackets.isEmpty())
+                        break;
+                }
+            } catch (ClassNotFoundException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+            return data.length;
+        
     }
+
+    
 
     /**
      * The receive data function . It reads the incoming packets
@@ -384,85 +409,57 @@ public class TTPConnection {
     public byte[] receive() throws IOException, ClassNotFoundException {
         
         byte[] data = receiveData();
-        byte[] app_data = null;
-
-        if (recdDatagram.getSize() > 9) {
-            if(byteArrayToInt(new byte[] { data[0], data[1], data[2], data[3]}) == expectedSeqNum) {
-                if (calculateChecksum(data) != recdDatagram.getChecksum()) {
-                    System.out.println("Checksum error!!");
-                    sendAcknowledgement();
-                } else {
-                    System.out.println("Checksum verified!!");
-                    acknNum = byteArrayToInt(new byte[] { data[0], data[1], data[2], data[3]});
-                    System.out.println("Received data with Seq no " + acknNum);
-
-                    if(data[8]==8) {
-                        app_data = new byte[data.length - 9];
-                        for (int i=0; i < app_data.length; i++) {
-                            app_data[i] = data[i+9];
-                        }
-                        sendAcknowledgement();
-                        expectedSeqNum++;
-                    }
-                    else if(data[8]== 0) {
-                        sendAcknowledgement();
-                        expectedSeqNum++;
-                        ArrayList<Byte> dataList = reassemble(data);
-                        app_data = new byte[dataList.size()];
-                        for (int i=0;i<dataList.size();i++) {
-                            app_data[i] = (byte)dataList.get(i);
-                        }
-                    }
-                }
-            }
-            else {
-                sendAcknowledgement();
-            }
-        } else {
-            if (data[8] == (byte)6) {               
+        System.out.println("receive got data");
+        byte[] pdu = null;
+        System.out.println("datagram size "+ recdDatagram.getSize() + "flag " + data[FLAG]);
+        if (recdDatagram.getSize() <= HEADERLEN) {
+            
+            if (data[FLAG] == (byte)SYNACK) {               
                 acknNum = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
                 expectedSeqNum =  acknNum + 1;
                 base = byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}) + 1;
                 clock.stop();
                 System.out.println("Received SYNACK with seq no:" + acknNum + " and Acknowledgement No " + (base-1));
-                Set<Integer> keys = unacknowledgedPackets.keySet();
+                Set<Integer> keys = unackedPackets.keySet();
                 for (Integer i: keys) {
                     if (i< base) {
-                        unacknowledgedPackets.remove(i);
+                        unackedPackets.remove(i);
                     }
                 }
                 sendSYNAcknowledgement();
             }
-            if(data[8]== (byte)2) {
+            if(data[FLAG]== (byte)ACK) {
                 base = byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}) + 1;
-                System.out.println("Received ACK for packet no:" + byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}));
+                System.out.println("Received ACK for packet no:" + byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}) + "restart timer");
 
-                Set<Integer> keys = unacknowledgedPackets.keySet();
+                Set<Integer> keys = unackedPackets.keySet();
                 for (Integer i: keys) {
                     if (i< base) {
-                        unacknowledgedPackets.remove(i);
+                        unackedPackets.remove(i);
                     }
                 }
+                
+                clock.restart();
             }
-            if(data[8] == (byte)1){
-                unacknowledgedPackets.clear();
+            if(data[FLAG] == (byte)FIN){
+                unackedPackets.clear();
                 acknNum = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
                 expectedSeqNum =  acknNum + 1;
                 datagram.setSize((short) 9);
-                datagram.setData(createPayloadHeader(FINACK));
+                datagram.setData(fillHeader(FINACK));
                 datagram.setChecksum((short)-1);
                 ds.sendDatagram(datagram);
 
                 System.out.println("FINACK sent to " + datagram.getDstaddr() + ":" + datagram.getDstport());
 
                 clock.restart();
-                unacknowledgedPackets.put(nextSeqNum, new Datagram(datagram.getSrcaddr(), datagram.getDstaddr(), datagram.getSrcport(), datagram.getDstport(), datagram.getSize(), datagram.getChecksum(), datagram.getData()));
+                unackedPackets.put(nextSeqNum, new Datagram(datagram.getSrcaddr(), datagram.getDstaddr(), datagram.getSrcport(), datagram.getDstport(), datagram.getSize(), datagram.getChecksum(), datagram.getData()));
                 nextSeqNum++;
                 //far end close the connection, just return a null to let app layer to konw that
                 connClosed = true;
                 return null;
             }
-            if(data[8]== (byte)3) {
+            if(data[FLAG]== (byte)FINACK) {
                 acknNum = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
                 expectedSeqNum =  acknNum + 1;
                 base = byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}) + 1;
@@ -474,13 +471,44 @@ public class TTPConnection {
                 connClosed = true;
                 return null;
             }
-            if(base == nextSeqNum) {
-                clock.stop();
-            } else {
-                clock.restart();
+           
+        }else{
+            int seqNum = byteArrayToInt(new byte[] { data[0], data[1], data[2], data[3]});
+            System.out.println("seqNum " + seqNum + " expected "+ expectedSeqNum);
+            if(byteArrayToInt(new byte[] { data[0], data[1], data[2], data[3]}) == expectedSeqNum) {
+                if (calcChecksum(data) != recdDatagram.getChecksum()) {
+                    System.out.println("packet " + seqNum + "Checksum error!!");
+                    //discard the packet, do not ack and let sender to resend it
+                } else {
+                    System.out.println("Received data with Seq no " + seqNum + " Checksum verified!!");
+                    
+                    acknNum = byteArrayToInt(new byte[] { data[0], data[1], data[2], data[3]});
+                    
+                    sendAcknowledgement();
+                    expectedSeqNum++;
+                    
+                    if(data[FLAG]==END) {
+                        pdu = new byte[data.length - HEADERLEN];
+                        for (int i=0; i < pdu.length; i++) {
+                            pdu[i] = data[i+9];
+                        }
+                        
+                    }
+                    else if(data[FLAG]== 0) {
+                        
+                        ArrayList<Byte> dataList = reassemble(data);
+                        pdu = new byte[dataList.size()];
+                        for (int i=0;i<dataList.size();i++) {
+                            pdu[i] = (byte)dataList.get(i);
+                        }
+                    }
+                }
+            }
+            else {
+                sendAcknowledgement();
             }
         }
-        return app_data;
+        return pdu;
     }
 
     /**
@@ -502,7 +530,8 @@ public class TTPConnection {
         while(true) {
             //recdDatagram = ds.receiveDatagram(); 
             byte[] data = receiveData();
-
+            int seqNum = byteArrayToInt(new byte[] { data[0], data[1], data[2], data[3]});
+            System.out.println("reasamble seqNum " + seqNum + " expected " + expectedSeqNum + " flag " + data[8]);
             if(byteArrayToInt(new byte[] { data[0], data[1], data[2], data[3]}) == expectedSeqNum) {
                 acknNum = byteArrayToInt(new byte[] { data[0], data[1], data[2], data[3]});
 
@@ -538,15 +567,17 @@ public class TTPConnection {
     
     protected void sendAcknowledgement() throws IOException {
         datagram.setSize((short)9);
-        datagram.setData(createPayloadHeader(ACK));
+        datagram.setData(fillHeader(ACK));
         datagram.setChecksum((short)-1);
-        ds.sendDatagram(datagram);
-        System.out.println("Acknowledgement sent! No:" + acknNum);
+        if(ds != null){
+            ds.sendDatagram(datagram);
+            System.out.println("Acknowledgement sent! No:" + acknNum);
+        }
     }
     
     protected void sendSYNAcknowledgement() throws IOException {
         datagram.setSize((short)9);
-        datagram.setData(createPayloadHeader(SYNACK));
+        datagram.setData(fillHeader(SYNACK));
         datagram.setChecksum((short)-1);
         ds.sendDatagram(datagram);
         System.out.println("Acknowledgement sent! No:" + acknNum);
@@ -554,7 +585,7 @@ public class TTPConnection {
 
     protected void sendFinackAcknowledgement() throws IOException {
         datagram.setSize((short)9);
-        datagram.setData(createPayloadHeader(FINACKACK));
+        datagram.setData(fillHeader(FINACKACK));
         datagram.setChecksum((short)-1);
         ds.sendDatagram(datagram);
         System.out.println("Acknowledgement sent for FINACK! No:" + acknNum);
@@ -572,7 +603,7 @@ public class TTPConnection {
     ActionListener listener = new ActionListener(){
         public void actionPerformed(ActionEvent event){
             System.out.println("Timeout for Packet " + base);
-            Iterator<Entry<Integer, Datagram>> it = unacknowledgedPackets.entrySet().iterator();
+            Iterator<Entry<Integer, Datagram>> it = unackedPackets.entrySet().iterator();
             while (it.hasNext()) {
                 try {
                     Entry<Integer,Datagram> pair = it.next();

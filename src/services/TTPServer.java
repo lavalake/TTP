@@ -73,13 +73,15 @@ public void open(int srcPort, int ver){
                     server_endPoint = new TTPServerEnd(N, time,ds);
                     openConnections.put(sourceKey, server_endPoint);
                     acknNum = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
+                    Random rand = new Random();
+                    nextSeqNum = rand.nextInt(65536);
                     Datagram datagram = new Datagram();
                     datagram.setSrcaddr(request.getDstaddr());
                     datagram.setDstaddr(request.getSrcaddr());
                     datagram.setSrcport((short) request.getDstport());
                     datagram.setDstport((short) request.getSrcport());
                     datagram.setSize((short) 9);
-                    datagram.setData(createPayloadHeader(TTPConnection.SYNACK));
+                    datagram.setData(fillHeader(TTPConnection.SYNACK));
                     datagram.setChecksum((short)-1);
                     this.ds.sendDatagram(datagram);
                     server_endPoint.startClock();
@@ -87,11 +89,11 @@ public void open(int srcPort, int ver){
                     System.out.println("SYNACK sent to " + datagram.getDstaddr() + ":" + datagram.getDstport() + " with Seq no " + nextSeqNum);
     
                     expectedSeqNum = acknNum + 1;
-                    Random rand = new Random();
-                    nextSeqNum = rand.nextInt(65536);
+                    
     
                     server_endPoint.setSourceKey(sourceKey);
                     server_endPoint.setNextSeqNum(nextSeqNum);
+                    //server_endPoint.setBase(nextSeqNum);
                     server_endPoint.setAcknNum(acknNum);
                     server_endPoint.setExpectedSeqNum(expectedSeqNum);
                     server_endPoint.setDatagram(datagram);
@@ -109,14 +111,16 @@ public void open(int srcPort, int ver){
                     
                     server_endPoint = openConnections.get(sourceKey);
                     server_endPoint.stopClock();
-                    acknNum = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
-                    expectedSeqNum =  acknNum + 1;
+                    server_endPoint.changeClockListener();
+                    //acknNum = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
+                    //expectedSeqNum =  acknNum + 1;
                     base = byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}) + 1;
-                    server_endPoint.setAcknNum(acknNum);
+                    server_endPoint.setNextSeqNum(base);
+                    //server_endPoint.setAcknNum(acknNum);
                     server_endPoint.setBase(base);
-                    server_endPoint.setExpectedSeqNum(expectedSeqNum);
+                    //server_endPoint.setExpectedSeqNum(expectedSeqNum);
                     
-                    BlockingQueue<byte[]> dgQ = new LinkedBlockingQueue<byte[]>();
+                    BlockingQueue<Datagram> dgQ = new LinkedBlockingQueue<Datagram>();
                     server_endPoint.setDgQ(dgQ);
                     System.out.println("Received SYNACK with seq no:" + acknNum + " and Acknowledgement No " + (base-1));
                     return server_endPoint;
@@ -136,7 +140,7 @@ public void open(int srcPort, int ver){
                     //use blockingQueue to notify the connection end
                     server_endPoint = openConnections.get(sourceKey);
                     try {
-                        server_endPoint.getDgQ().put(data);
+                        server_endPoint.getDgQ().put(request);
                     } catch (InterruptedException e) {
                         // TODO Auto-generated catch block
                         e.printStackTrace();

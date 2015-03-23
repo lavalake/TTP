@@ -37,19 +37,20 @@ public class FTPClient {
 		TTPClientEnd client = new TTPClientEnd(Integer.parseInt(args[0]),Integer.parseInt(args[1]));
 		
 		try {
-			client.open(srcAddr, dstAddr, (short)srcPort, (short)dstPort, 10);
+			client.open(srcAddr, dstAddr, (short)Integer.parseInt(args[2]), (short)dstPort, 10);
 			System.out.println("\nEstablised connection to FTP Server at " + dstAddr + ":" + dstPort);
-				
+			System.out.println("get file "+fileName.getBytes());	
 			client.send(fileName.getBytes());
-
+			
 			boolean listening = true;
 			while (listening) {
 				byte[] data = client.receive();
-
+				System.out.println("FTP client get data");
 				if (data!=null) {
 					System.arraycopy(data, 0, startBytes, 0, hashIndicator.length);	
 					
 					if (Arrays.equals(startBytes, hashIndicator)) {
+					    System.out.println("FTP client get md5 ");
 						System.arraycopy(data, startBytes.length, md5hashRecd, 0, 16);
 					} else {
 						System.out.println("FTP Client received file!");
@@ -60,14 +61,23 @@ public class FTPClient {
 						if (Arrays.equals(md5HashComputed,md5hashRecd)) {
 							System.out.println("MD5 Hash verified!!");
 							File f = new File(path + fileName);
+							System.out.println("FTP client write to " + path + fileName);
+							
 							f.createNewFile();
 							FileOutputStream fs = new FileOutputStream(f);
 							BufferedOutputStream bs = new BufferedOutputStream(fs);
 							bs.write(data);
 							bs.close();
 							bs = null;
+							
 						} else {
 							System.out.println("Error in file received! MD5 digest does not match!");
+							System.out.println("cal md5 " + md5HashComputed);
+							for(int i =0; i<md5HashComputed.length; i++)
+							    System.out.println(md5HashComputed[i] + " ");
+							System.out.println("rec md5 " + md5hashRecd);
+							for(int i =0; i<md5hashRecd.length; i++)
+                                System.out.println(md5hashRecd[i] + " ");
 						}
 						client.close();
 					}				

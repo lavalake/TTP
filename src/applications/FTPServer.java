@@ -23,12 +23,12 @@ public class FTPServer {
 
 			while ( true) {
 			    serverEnd = ttp_server.accept();
-				byte[] request = serverEnd.receive();
-				if (request != null) {
-					System.out.println("FTP Server received file request!");
-					Thread serviceClient = new Thread(new ProxyFTPServer(ttp_server,request));
+			    System.out.println("FTP server get a client connection");
+				//byte[] request = serverEnd.receive();
+				
+					Thread serviceClient = new Thread(new ProxyFTPServer(serverEnd));
 					serviceClient.start();
-				}
+				
 				System.out.println("FTP Server continues listening..");
 			}
 		} catch (SocketException e) {

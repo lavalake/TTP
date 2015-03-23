@@ -18,11 +18,7 @@ import datatypes.Datagram;
 
 public class TTPClientEnd extends TTPConnection {
     
-    private int N;
-    private int acknNum;
-    private int expectedSeqNum;
-    private int time;
-    private Timer clock;
+
     
 
 
@@ -62,7 +58,7 @@ public class TTPClientEnd extends TTPConnection {
         datagram.setSrcport((short) srcPort);
         datagram.setDstport((short) destPort);
         datagram.setSize((short) 9);
-        datagram.setData(createPayloadHeader(TTPConnection.SYN));
+        datagram.setData(fillHeader(TTPConnection.SYN));
         datagram.setChecksum((short) -1);
         this.ds.sendDatagram(datagram);
         System.out.println("SYN sent to " + datagram.getDstaddr() + ":" + datagram.getDstport() + " with ISN " + nextSeqNum);
@@ -89,18 +85,20 @@ public class TTPClientEnd extends TTPConnection {
     }
 
     public void close() throws IOException, ClassNotFoundException {
-        datagram.setData(createPayloadHeader(FIN));
+        datagram.setData(fillHeader(FIN));
         datagram.setSize((short)9);
         datagram.setChecksum((short)-1);
 
         ds.sendDatagram(datagram);
         System.out.println("FIN sent! Seq No:" + nextSeqNum);
 
-        unacknowledgedPackets.put(nextSeqNum, new Datagram(datagram.getSrcaddr(), datagram.getDstaddr(), datagram.getSrcport(), datagram.getDstport(), datagram.getSize(), datagram.getChecksum(), datagram.getData()));
+        unackedPackets.put(nextSeqNum, new Datagram(datagram.getSrcaddr(), datagram.getDstaddr(), datagram.getSrcport(), datagram.getDstport(), datagram.getSize(), datagram.getChecksum(), datagram.getData()));
         nextSeqNum++;
 
-        if(base == nextSeqNum)
+        if(base == nextSeqNum){
+            System.out.println("start fin timer");
             clock.restart();
+        }
         //receive the FINACK
         while(true){
             byte[] data = receiveData();
@@ -108,8 +106,8 @@ public class TTPClientEnd extends TTPConnection {
                 acknNum = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
                 expectedSeqNum =  acknNum + 1;
                 base = byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}) + 1;
-                System.out.println("Received FINACK with seq no:" + acknNum );
-
+                System.out.println("Received FINACK with seq no:" + acknNum + "stop fin timer");
+                clock.stop();
                 
                 sendFinackAcknowledgement();
                 return;

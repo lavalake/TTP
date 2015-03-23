@@ -24,7 +24,7 @@ public class TTPServerEnd extends TTPConnection {
 
 
 
-    BlockingQueue<byte[]> dgQ;
+    BlockingQueue<Datagram> dgQ;
     
 
     public TTPServerEnd(int N, int time) {
@@ -46,11 +46,11 @@ public class TTPServerEnd extends TTPConnection {
         this.sourceKey = sourceKey;
     }
     
-    public BlockingQueue<byte[]> getDgQ() {
+    public BlockingQueue<Datagram> getDgQ() {
         return dgQ;
     }
 
-    public void setDgQ(BlockingQueue<byte[]> dgQ) {
+    public void setDgQ(BlockingQueue<Datagram> dgQ) {
         this.dgQ = dgQ;
     }
     /**
@@ -64,7 +64,9 @@ public class TTPServerEnd extends TTPConnection {
         
         byte[] data;
         try {
-            data = dgQ.take();
+            System.out.println("TTPServerEnd waiting fro data");
+            recdDatagram = dgQ.take();
+            data = (byte[]) recdDatagram.getData();
             return data;
         } catch (InterruptedException e) {
             // TODO Auto-generated catch block
@@ -76,16 +78,16 @@ public class TTPServerEnd extends TTPConnection {
     
     //server side close, wait for FIN from client
     public void close() throws IOException, ClassNotFoundException {
-        
+        System.out.println("server close the connection");
         //receive the FIN
         while(true){
             byte[] data = receiveData();
             if(data[8] == (byte)1){
-                unacknowledgedPackets.clear();
+                unackedPackets.clear();
                 acknNum = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
                 expectedSeqNum =  acknNum + 1;
                 datagram.setSize((short) 9);
-                datagram.setData(createPayloadHeader(FINACK));
+                datagram.setData(fillHeader(FINACK));
                 datagram.setChecksum((short)-1);
                 ds.sendDatagram(datagram);
 
