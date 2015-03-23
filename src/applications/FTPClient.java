@@ -25,34 +25,37 @@ public class FTPClient {
 		String srcAddr = "127.0.0.1";
 		String dstAddr = "127.0.0.1";
 		
-		System.out.println("Enter file name");
-		Scanner readfile = new Scanner(System.in);
-		String fileName = readfile.nextLine();
-		String path = System.getProperty("user.dir") + "/ClientFiles/";
 		
-		byte[] hashIndicator = "MD5-HASH".getBytes();
-		byte[] startBytes = new byte[hashIndicator.length];
-		byte[] md5hashRecd = new byte[16];
 
 		TTPClientEnd client = new TTPClientEnd(Integer.parseInt(args[0]),Integer.parseInt(args[1]));
 		
 		try {
 			client.open(srcAddr, dstAddr, (short)Integer.parseInt(args[2]), (short)dstPort, 10);
 			System.out.println("\nEstablised connection to FTP Server at " + dstAddr + ":" + dstPort);
-			System.out.println("get file "+fileName.getBytes());	
-			client.send(fileName.getBytes());
+			while(true){
+    			System.out.println("Enter file name");
+    	        Scanner readfile = new Scanner(System.in);
+    	        String fileName = readfile.nextLine();
+    	        String path = System.getProperty("user.dir") + "/ClientFiles/";
+    	        
+    	        byte[] hashIndicator = "MD5-HASH".getBytes();
+    	        byte[] startBytes = new byte[hashIndicator.length];
+    	        byte[] md5hashRecd = new byte[16];
+    			System.out.println("get file "+fileName.getBytes());	
+    			client.send(fileName.getBytes());
+    			
+    			boolean listening = true;
 			
-			boolean listening = true;
-			while (listening) {
-				byte[] data = client.receive();
+				byte[] data1 = client.receive();
 				System.out.println("FTP client get data");
-				if (data!=null) {
-					System.arraycopy(data, 0, startBytes, 0, hashIndicator.length);	
+				if (data1!=null) {
+					System.arraycopy(data1, 0, startBytes, 0, hashIndicator.length);	
 					
 					if (Arrays.equals(startBytes, hashIndicator)) {
 					    System.out.println("FTP client get md5 ");
-						System.arraycopy(data, startBytes.length, md5hashRecd, 0, 16);
-					} else {
+						System.arraycopy(data1, startBytes.length, md5hashRecd, 0, 16);
+					} 
+					    byte[] data = client.receive();
 						System.out.println("FTP Client received file!");
 
 						MessageDigest md = MessageDigest.getInstance("MD5");
@@ -80,7 +83,8 @@ public class FTPClient {
                                 System.out.println(md5hashRecd[i] + " ");
 						}
 						client.close();
-					}				
+						
+									
 				}
 			}			
 		} catch (EOFException e) {

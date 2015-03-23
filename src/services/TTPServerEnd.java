@@ -29,8 +29,8 @@ public class TTPServerEnd extends TTPConnection {
 
     public TTPServerEnd(int N, int time) {
         super(N, time);
-        clock = new Timer(this.time,handShakeListener);
-        clock.setInitialDelay(this.time);
+        clock = new Timer(this.retrsTime,handShakeListener);
+        clock.setInitialDelay(this.retrsTime);
     }
 
     public TTPServerEnd(int N, int time, DatagramService ds) {
@@ -65,8 +65,8 @@ public class TTPServerEnd extends TTPConnection {
         byte[] data;
         try {
             System.out.println("TTPServerEnd waiting fro data");
-            recdDatagram = dgQ.take();
-            data = (byte[]) recdDatagram.getData();
+            recvdDg = dgQ.take();
+            data = (byte[]) recvdDg.getData();
             return data;
         } catch (InterruptedException e) {
             // TODO Auto-generated catch block
@@ -84,11 +84,11 @@ public class TTPServerEnd extends TTPConnection {
             byte[] data = receiveData();
             if(data[8] == (byte)1){
                 unackedPackets.clear();
-                acknNum = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
-                expectedSeqNum =  acknNum + 1;
+                ackn = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
+                expectedSeq =  ackn + 1;
                 datagram.setSize((short) 9);
                 datagram.setData(fillHeader(FINACK));
-                datagram.setChecksum((short)-1);
+                datagram.setChecksum((short)0);
                 ds.sendDatagram(datagram);
 
                 System.out.println("FINACK sent to " + datagram.getDstaddr() + ":" + datagram.getDstport());
@@ -100,8 +100,10 @@ public class TTPServerEnd extends TTPConnection {
 
     }
     public void changeClockListener(){
+        
+        clock.stop();
         clock.removeActionListener(handShakeListener);
-        clock.addActionListener(listener);
+        clock.addActionListener(dataListener);
     }
     
     /**
