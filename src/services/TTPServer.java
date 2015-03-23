@@ -32,12 +32,12 @@ public class TTPServer extends TTPConnection {
 
         this.N = N;
 
-        this.time = time;
+        this.retrsTime = time;
 
  
 
         Random rand = new Random();
-        nextSeqNum = rand.nextInt(65536);
+        nextSeq = rand.nextInt(65536);
     }
 
 public void open(int srcPort, int ver){
@@ -70,11 +70,11 @@ public void open(int srcPort, int ver){
             System.out.println("TTPServer receive dg " + data[8]);
             if (data[8] == (byte)4) {
                 if(!openConnections.containsKey(sourceKey)) {
-                    server_endPoint = new TTPServerEnd(N, time,ds);
+                    server_endPoint = new TTPServerEnd(N, retrsTime,ds);
                     openConnections.put(sourceKey, server_endPoint);
-                    acknNum = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
+                    ackn = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
                     Random rand = new Random();
-                    nextSeqNum = rand.nextInt(65536);
+                    nextSeq = rand.nextInt(65536);
                     Datagram datagram = new Datagram();
                     datagram.setSrcaddr(request.getDstaddr());
                     datagram.setDstaddr(request.getSrcaddr());
@@ -84,18 +84,19 @@ public void open(int srcPort, int ver){
                     datagram.setData(fillHeader(TTPConnection.SYNACK));
                     datagram.setChecksum((short)-1);
                     this.ds.sendDatagram(datagram);
+                    //start the timer for SYNACK
                     server_endPoint.startClock();
                     
-                    System.out.println("SYNACK sent to " + datagram.getDstaddr() + ":" + datagram.getDstport() + " with Seq no " + nextSeqNum);
+                    System.out.println("SYNACK sent to " + datagram.getDstaddr() + ":" + datagram.getDstport() + " with Seq no " + nextSeq);
     
-                    expectedSeqNum = acknNum + 1;
+                    expectedSeq = ackn + 1;
                     
     
                     server_endPoint.setSourceKey(sourceKey);
-                    server_endPoint.setNextSeqNum(nextSeqNum);
+                    server_endPoint.setNextSeqNum(nextSeq);
                     //server_endPoint.setBase(nextSeqNum);
-                    server_endPoint.setAcknNum(acknNum);
-                    server_endPoint.setExpectedSeqNum(expectedSeqNum);
+                    server_endPoint.setAcknNum(ackn);
+                    server_endPoint.setExpectedSeqNum(expectedSeq);
                     server_endPoint.setDatagram(datagram);
                     
                     System.out.println("Received SYN from:" + sourceKey);
@@ -122,7 +123,7 @@ public void open(int srcPort, int ver){
                     
                     BlockingQueue<Datagram> dgQ = new LinkedBlockingQueue<Datagram>();
                     server_endPoint.setDgQ(dgQ);
-                    System.out.println("Received SYNACK with seq no:" + acknNum + " and Acknowledgement No " + (base-1));
+                    System.out.println("Received SYNACK with seq no:" + ackn + " and Acknowledgement No " + (base-1));
                     return server_endPoint;
                 }
             }

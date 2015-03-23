@@ -17,25 +17,19 @@ import javax.swing.Timer;
 import datatypes.Datagram;
 
 public class TTPClientEnd extends TTPConnection {
-    
-
-    
-
 
     public TTPClientEnd(int N, int time) {
         super(N,time);
         this.N = N;
 
-        this.time = time;
-
-        clock = new Timer(this.time,handShakeListener);
-        clock.setInitialDelay(this.time);
+        clock = new Timer(this.retrsTime,handShakeListener);
+        clock.setInitialDelay(this.retrsTime);
 
     }
 
     public void changeClockListener(){
         clock.removeActionListener(handShakeListener);
-        clock.addActionListener(listener);
+        clock.addActionListener(dataListener);
     }
     /**
      * Sends a SYN packet and opens the Connection End Point for receiving data at the client side
@@ -61,23 +55,23 @@ public class TTPClientEnd extends TTPConnection {
         datagram.setData(fillHeader(TTPConnection.SYN));
         datagram.setChecksum((short) -1);
         this.ds.sendDatagram(datagram);
-        System.out.println("SYN sent to " + datagram.getDstaddr() + ":" + datagram.getDstport() + " with ISN " + nextSeqNum);
+        System.out.println("SYN sent to " + datagram.getDstaddr() + ":" + datagram.getDstport() + " with ISN " + nextSeq);
 
-        base = nextSeqNum;
+        base = nextSeq;
         
         
-        nextSeqNum++;
+        nextSeq++;
         while(true){
             Datagram request = ds.receiveDatagram(); 
             byte[] data = (byte[]) request.getData();
             if (data[8] == (byte)6) {  
                 
-                acknNum = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
-                expectedSeqNum =  acknNum + 1;
+                ackn = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
+                expectedSeq =  ackn + 1;
                 base = byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}) + 1;
-                System.out.println("Received SYNACK with seq no:" + acknNum + " and Acknowledgement No " + (base-1));
+                System.out.println("Received SYNACK with seq no:" + ackn + " and Acknowledgement No " + (base-1));
                 
-                sendSYNAcknowledgement();
+                SYNAcknowledgement();
                 changeClockListener();
                 return;
             }
@@ -90,12 +84,12 @@ public class TTPClientEnd extends TTPConnection {
         datagram.setChecksum((short)-1);
 
         ds.sendDatagram(datagram);
-        System.out.println("FIN sent! Seq No:" + nextSeqNum);
+        System.out.println("FIN sent! Seq No:" + nextSeq);
 
-        unackedPackets.put(nextSeqNum, new Datagram(datagram.getSrcaddr(), datagram.getDstaddr(), datagram.getSrcport(), datagram.getDstport(), datagram.getSize(), datagram.getChecksum(), datagram.getData()));
-        nextSeqNum++;
+        unackedPackets.put(nextSeq, new Datagram(datagram.getSrcaddr(), datagram.getDstaddr(), datagram.getSrcport(), datagram.getDstport(), datagram.getSize(), datagram.getChecksum(), datagram.getData()));
+        nextSeq++;
 
-        if(base == nextSeqNum){
+        if(base == nextSeq){
             System.out.println("start fin timer");
             clock.restart();
         }
@@ -103,13 +97,13 @@ public class TTPClientEnd extends TTPConnection {
         while(true){
             byte[] data = receiveData();
             if(data[8]== (byte)3) {
-                acknNum = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
-                expectedSeqNum =  acknNum + 1;
+                ackn = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
+                expectedSeq =  ackn + 1;
                 base = byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}) + 1;
-                System.out.println("Received FINACK with seq no:" + acknNum + "stop fin timer");
+                System.out.println("Received FINACK with seq no:" + ackn + "stop fin timer");
                 clock.stop();
                 
-                sendFinackAcknowledgement();
+                finackAcknowledgement();
                 return;
                 
             }
