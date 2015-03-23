@@ -26,6 +26,7 @@ public class DatagramService {
 	private int port;
 	private int verbose;
 	private DatagramSocket socket;
+    private DatagramPacket bufferPacket;
 
 	public DatagramService(int port, int verbose) throws SocketException {
 		super();
@@ -59,11 +60,10 @@ public class DatagramService {
 		DatagramPacket packet = new DatagramPacket(data, data.length,
 				IPAddress, datagram.getDstport());
 
-
         // Testing for delay packet
         if (num == 3){
             int randomNum = numGenerator.nextInt(10);
-            delayPacket(packet, randomNum * 1000);
+            delayPacket(packet, randomNum * 1000 + 3000);
             System.out.println("Testing for delay packet, delaying" + randomNum + "seconds");
         }
 		// Testing for duplicate packet
@@ -73,13 +73,22 @@ public class DatagramService {
             System.out.println("Testing for duplicate packet, duplicating" + randomNum + "times");
         }
 
-
+        //Testing for out-of-order deliveries
+        if (num == 9)
+            bufferPacket = packet;
 
         //Testing for packet drop
         if (num == 10)
             System.out.println("Testing for packet drop");
-        else
-		    socket.send(packet);
+        else {
+            if (bufferPacket != null){
+                System.out.println("Testing for packet corruption");
+                socket.send(packet);
+                socket.send(bufferPacket);
+                bufferPacket = null;
+            } else
+                socket.send(packet);
+        }
 	}
 
 	public Datagram receiveDatagram() throws IOException,
