@@ -58,7 +58,7 @@ public class TTPClientEnd extends TTPConnection {
         System.out.println("SYN sent to " + datagram.getDstaddr() + ":" + datagram.getDstport() + " with ISN " + nextSeq);
 
         base = nextSeq;
-        
+        clock.start();
         
         nextSeq++;
         while(true){

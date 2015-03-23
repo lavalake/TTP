@@ -141,7 +141,8 @@ public void open(int srcPort, int ver){
                     //use blockingQueue to notify the connection end
                     server_endPoint = openConnections.get(sourceKey);
                     try {
-                        server_endPoint.getDgQ().put(request);
+                        if (server_endPoint.getDgQ() != null)
+                            server_endPoint.getDgQ().put(request);
                     } catch (InterruptedException e) {
                         // TODO Auto-generated catch block
                         e.printStackTrace();

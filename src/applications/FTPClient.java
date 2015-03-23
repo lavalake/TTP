@@ -34,7 +34,7 @@ public class FTPClient {
         String dstAddr = "127.0.0.1";
         int dstPort = 2221;
         int srcPort = 2000;
-//
+
 		System.out.println("Enter the request file name");
 		Scanner requestFile = new Scanner(System.in);
 		String fileName = requestFile.nextLine();
@@ -45,7 +45,7 @@ public class FTPClient {
 			System.out.println("Connect to FTP Server (" + dstAddr + ":" + dstPort + ")");
 
             client.send(fileName.getBytes());
-            System.out.println("Send request to get "+fileName.getBytes());
+            System.out.println("Send request to get "+ Arrays.toString(fileName.getBytes()));
 
             //receive first message (MD5 or error)
             byte[] msgReceived = client.receive();
@@ -79,12 +79,10 @@ public class FTPClient {
                     else {
                         //md5 does not match
                         System.out.println("md5 does not match");
-                        System.out.println("cal md5 " + md5Check);
-                        for (int i = 0; i < md5Check.length; i++)
-                            System.out.println(md5Check[i] + " ");
-                        System.out.println("rec md5 " + msgReceived);
-                        for (int i = 0; i < msgReceived.length; i++)
-                            System.out.println(msgReceived[i] + " ");
+                        System.out.println("cal md5 " + Arrays.toString(md5Check));
+                        for (byte aMd5Check : md5Check) System.out.println(aMd5Check + " ");
+                        System.out.println("rec md5 " + Arrays.toString(msgReceived));
+                        for (byte aMsgReceived : msgReceived) System.out.println(aMsgReceived + " ");
                     }
                 }
             }

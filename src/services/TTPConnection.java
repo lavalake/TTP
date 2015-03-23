@@ -417,7 +417,7 @@ public class TTPConnection {
                     ackn = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
                     expectedSeq =  ackn + 1;
                     base = byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}) + 1;
-                    clock.stop();
+
                     System.out.println("Received SYNACK with seq no:" + ackn + " and Acknowledgement No " + (base-1));
                     Set<Integer> keys = unackedPackets.keySet();
                     for (Integer i: keys) {

@@ -67,18 +67,18 @@ public class DatagramService {
 		DatagramPacket packet = new DatagramPacket(data, data.length,
 				IPAddress, datagram.getDstport());
 
-        // Testing for delay packet
-//        if (num % 11 == 0){
-//            int randomNum = numGenerator.nextInt(10);
-//            delayPacket(packet, randomNum * 1000 + 3000);
-//            System.out.println("Testing for delay packet, delaying" + randomNum + "seconds");
-//        }
-		// Testing for duplicate packet
-//        if (num % 13 == 0) {
-//            int randomNum = numGenerator.nextInt(10);
-//            duplicatePacket(packet, randomNum);
-//            System.out.println("Testing for duplicate packet, duplicating" + randomNum + "times");
-//        }
+        //Testing for delay packet
+        if (num % 13 == 0){
+            int randomNum = numGenerator.nextInt(7);
+            delayPacket(packet, randomNum * 1000 + 3000);
+            System.out.println("Testing for delay packet, delaying " + randomNum + "seconds");
+        }
+		//Testing for duplicate packet
+        if (num % 17 == 0) {
+            int randomNum = numGenerator.nextInt(5);
+            duplicatePacket(packet, randomNum);
+            System.out.println("Testing for duplicate packet, duplicating " + randomNum + "times");
+        }
 
         //Testing for packet drop
         if (num % 7 == 0)
@@ -107,8 +107,6 @@ public class DatagramService {
 //
 //            }
 //        }
-
-
 	}
 
 	public Datagram receiveDatagram() throws IOException,
