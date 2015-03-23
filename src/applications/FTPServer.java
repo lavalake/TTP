@@ -25,13 +25,11 @@ public class FTPServer implements Runnable{
         try {
 
             data = ttp.receive();
-//            byte[] filename = new byte[data.length];
-//            System.arraycopy(data, 0, filename, 0, data.length);
-
             String fileName = new String(data, "US-ASCII");
 
             System.out.println("Requested filename:" + fileName);
 
+            //read file on the server to the data stream
             File file = new File(fileName);
             FileInputStream fs = new FileInputStream(file);
             byte[] fileData = new byte[(int)file.length()];
@@ -50,8 +48,17 @@ public class FTPServer implements Runnable{
 
         } catch (FileNotFoundException e) {
             System.out.println("The file does not exist");
-        }
-        catch (IOException e) {
+            String error = "FileNotExisted";
+            byte[] errorMsg = error.getBytes();
+            try {
+                ttp.send(errorMsg);
+                ttp.close();
+            } catch (IOException e1) {
+                e1.printStackTrace();
+            } catch (ClassNotFoundException e1) {
+                e1.printStackTrace();
+            }
+        } catch (IOException e) {
             e.printStackTrace();
         } catch (NoSuchAlgorithmException e) {
             e.printStackTrace();
