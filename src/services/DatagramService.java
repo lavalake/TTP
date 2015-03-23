@@ -42,14 +42,23 @@ public class DatagramService {
 		oStream.writeObject(datagram);
 		oStream.flush();
 
+        //Creating random number for testing different situations
+        Random numGenerator = new Random();
+        int num = numGenerator.nextInt(10);
+
 		// Create Datagram Packet
 		byte[] data = bStream.toByteArray();
 		InetAddress IPAddress = InetAddress.getByName(datagram.getDstaddr());
+
+        //Testing for packet corruption
+        if (num == 8) {
+            data[data.length - 1] = (byte) (data[data.length - 1] ^ 1);
+            System.out.println("Testing for packet corruption");
+        }
+
 		DatagramPacket packet = new DatagramPacket(data, data.length,
 				IPAddress, datagram.getDstport());
 
-        Random numGenerator = new Random();
-        int num = numGenerator.nextInt(10);
 
         // Testing for delay packet
         if (num == 3){
@@ -63,7 +72,14 @@ public class DatagramService {
             duplicatePacket(packet, randomNum);
             System.out.println("Testing for duplicate packet, duplicating" + randomNum + "times");
         }
-		socket.send(packet);
+
+
+
+        //Testing for packet drop
+        if (num == 10)
+            System.out.println("Testing for packet drop");
+        else
+		    socket.send(packet);
 	}
 
 	public Datagram receiveDatagram() throws IOException,
