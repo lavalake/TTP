@@ -29,6 +29,7 @@ public class DatagramService {
 	private int verbose;
 	private DatagramSocket socket;
     private ArrayList<DatagramPacket> bufferPacket;
+    private int num = 5;
 
 	public DatagramService(int port, int verbose) throws SocketException {
 		super();
@@ -39,59 +40,75 @@ public class DatagramService {
 	}
 
 	public void sendDatagram(Datagram datagram) throws IOException {
+        num++;
 
 		ByteArrayOutputStream bStream = new ByteArrayOutputStream(1500);
 		ObjectOutputStream oStream = new ObjectOutputStream(bStream);
-		oStream.writeObject(datagram);
+
+        //Testing for packet corruption
+        if (num % 11 == 0) {
+            byte[] temp = (byte[])datagram.getData();
+            temp[temp.length - 1] = (byte)(temp[temp.length -1]^1);
+            datagram.setData(temp);
+            System.out.println("Testing for packet corruption");
+        }
+
+        oStream.writeObject(datagram);
 		oStream.flush();
 
         //Creating random number for testing different situations
         Random numGenerator = new Random();
-        int num = numGenerator.nextInt(10);
+        System.out.println("Count number " + num);
 
 		// Create Datagram Packet
 		byte[] data = bStream.toByteArray();
 		InetAddress IPAddress = InetAddress.getByName(datagram.getDstaddr());
 
-        //Testing for packet corruption
-        if (num == 1) {
-            data[data.length - 1] = (byte) (data[data.length - 1] ^ 1);
-            System.out.println("Testing for packet corruption");
-        }
-
 		DatagramPacket packet = new DatagramPacket(data, data.length,
 				IPAddress, datagram.getDstport());
 
         // Testing for delay packet
-        if (num == 2){
-            int randomNum = numGenerator.nextInt(10);
-            delayPacket(packet, randomNum * 1000 + 3000);
-            System.out.println("Testing for delay packet, delaying" + randomNum + "seconds");
-        }
+//        if (num % 11 == 0){
+//            int randomNum = numGenerator.nextInt(10);
+//            delayPacket(packet, randomNum * 1000 + 3000);
+//            System.out.println("Testing for delay packet, delaying" + randomNum + "seconds");
+//        }
 		// Testing for duplicate packet
-        if (num == 3) {
-            int randomNum = numGenerator.nextInt(10);
-            duplicatePacket(packet, randomNum);
-            System.out.println("Testing for duplicate packet, duplicating" + randomNum + "times");
-        }
+//        if (num % 13 == 0) {
+//            int randomNum = numGenerator.nextInt(10);
+//            duplicatePacket(packet, randomNum);
+//            System.out.println("Testing for duplicate packet, duplicating" + randomNum + "times");
+//        }
 
         //Testing for packet drop
-        if (num == 4)
+        if (num % 7 == 0)
             System.out.println("Testing for packet drop");
-        else if (num == 5 ){
-            if (bufferPacket != null){
-                System.out.println("Testing for packet corruption");
-                bufferPacket.add(packet);
-                Collections.shuffle(bufferPacket);
-                for (DatagramPacket p : bufferPacket)
-                    socket.send(p);
-                bufferPacket = null;
-            } else
-                socket.send(packet);
+        else {
+            System.out.println("Send Packet");
+            socket.send(packet);
         }
-        else
-            //Store packet to arraylist to do out-of-order deliveries testing
-            bufferPacket.add(packet);
+//        if (num % 7 == 0) {
+//            //Store packet to arraylist to do out-of-order deliveries testing
+//            if (bufferPacket == null)
+//                bufferPacket = new ArrayList<DatagramPacket>();
+//            bufferPacket.add(packet);
+//            System.out.println("Add to packet buffer");
+//        }
+//        else {
+//            if (bufferPacket != null){
+//                System.out.println("Testing for packet out-of-order deliveries");
+//                bufferPacket.add(packet);
+//                Collections.shuffle(bufferPacket);
+//                for (DatagramPacket p : bufferPacket)
+//                    socket.send(p);
+//
+//                bufferPacket = null;
+//            } else {
+//
+//            }
+//        }
+
+
 	}
 
 	public Datagram receiveDatagram() throws IOException,
