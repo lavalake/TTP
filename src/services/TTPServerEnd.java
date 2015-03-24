@@ -92,7 +92,7 @@ public class TTPServerEnd extends TTPConnection {
                 ds.sendDatagram(datagram);
 
                 System.out.println("FINACK sent to " + datagram.getDstaddr() + ":" + datagram.getDstport());
-
+                unackedPackets.put(nextSeq, datagram);
                 clock.restart();
                 return;
             }

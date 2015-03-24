@@ -46,13 +46,13 @@ public class DatagramService {
 		ObjectOutputStream oStream = new ObjectOutputStream(bStream);
 
         //Testing for packet corruption
-        if (num % 11 == 0) {
+/*        if (num % 11 == 0) {
             byte[] temp = (byte[])datagram.getData();
             temp[temp.length - 1] = (byte)(temp[temp.length -1]^1);
             datagram.setData(temp);
             System.out.println("Testing for packet corruption");
         }
-
+*/
         oStream.writeObject(datagram);
 		oStream.flush();
 
@@ -66,7 +66,7 @@ public class DatagramService {
 
 		DatagramPacket packet = new DatagramPacket(data, data.length,
 				IPAddress, datagram.getDstport());
-
+/*
         //Testing for delay packet
         if (num % 13 == 0){
             int randomNum = numGenerator.nextInt(7);
@@ -87,6 +87,8 @@ public class DatagramService {
             System.out.println("Send Packet");
             socket.send(packet);
         }
+        */
+		socket.send(packet);
 //        if (num % 7 == 0) {
 //            //Store packet to arraylist to do out-of-order deliveries testing
 //            if (bufferPacket == null)

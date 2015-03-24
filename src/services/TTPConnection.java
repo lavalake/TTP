@@ -332,7 +332,7 @@ public class TTPConnection {
                         try {
                             System.out.println("sending window full, start timer and wait for ack");
                             
-                            receive();
+                            receiveAck();
                             if(connClosed == true)
                                 return -1;
                         } catch (ClassNotFoundException e) {
@@ -367,7 +367,7 @@ public class TTPConnection {
             System.out.println("has send all packets and wait for the ack");
             try {
                 while(true){
-                    receive();
+                    receiveAck();
                     if(unackedPackets.isEmpty())
                         break;
                 }
@@ -426,6 +426,7 @@ public class TTPConnection {
                         }
                     }
                     SYNAcknowledgement();
+                    continue;
                 }
                 if(data[FLAG]== (byte)ACK) {
                     base = byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}) + 1;
@@ -446,6 +447,7 @@ public class TTPConnection {
                         System.out.println("unack  empty, stop timer");
                         clock.stop();
                     }
+                    continue;
                 }
                 if(data[FLAG] == (byte)FIN){
                     unackedPackets.clear();
@@ -520,6 +522,85 @@ public class TTPConnection {
         }
     }
 
+public void receiveAck() throws IOException, ClassNotFoundException {
+        
+        while(true){
+            byte[] data = receiveData();
+            System.out.println("receiveAck got data");
+            byte[] pdu = null;
+            System.out.println("datagram size "+ recvdDg.getSize() + "flag " + data[FLAG]);
+            if (recvdDg.getSize() <= HEADERLEN) {
+                
+                if (data[FLAG] == (byte)SYNACK) {               
+                    ackn = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
+                    expectedSeq =  ackn + 1;
+                    base = byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}) + 1;
+
+                    System.out.println("Received SYNACK with seq no:" + ackn + " and Acknowledgement No " + (base-1));
+                    Set<Integer> keys = unackedPackets.keySet();
+                    for (Integer i: keys) {
+                        if (i< base) {
+                            unackedPackets.remove(i);
+                        }
+                    }
+                    SYNAcknowledgement();
+                }
+                if(data[FLAG]== (byte)ACK) {
+                    base = byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}) + 1;
+                    System.out.println("Received ACK for packet no:" + byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}) + "restart timer");
+    
+                    Set<Integer> keys = unackedPackets.keySet();
+                    for (Integer i: keys) {
+                        if (i< base) {
+                            unackedPackets.remove(i);
+                        }
+                    }
+                    //if there are unacked packets, restart the timer. Othewise, dont.
+                    
+                    if(!unackedPackets.isEmpty()){
+                        System.out.println("unack not empty, restart timer");
+                        clock.restart();
+                    }else{
+                        System.out.println("unack  empty, stop timer");
+                        clock.stop();
+                    }
+                    return;
+                }
+                if(data[FLAG] == (byte)FIN){
+                    unackedPackets.clear();
+                    System.out.println("receive FIN from " + datagram.getDstaddr() + ":" + datagram.getDstport() + " send FINACK");
+                    ackn = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
+                    expectedSeq =  ackn + 1;
+                    datagram.setSize((short) 9);
+                    datagram.setData(fillHeader(FINACK));
+                    datagram.setChecksum((short)-1);
+                    ds.sendDatagram(datagram);
+    
+                    clock.restart();
+                    //unackedPackets.put(nextSeq, new Datagram(datagram.getSrcaddr(), datagram.getDstaddr(), datagram.getSrcport(), datagram.getDstport(), datagram.getSize(), datagram.getChecksum(), datagram.getData()));
+                    //nextSeq++;
+                    //far end close the connection, just return a null to let app layer to konw that
+                    connClosed = true;
+                    return ;
+                }
+                if(data[FLAG]== (byte)FINACK) {
+                    ackn = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
+                    expectedSeq =  ackn + 1;
+                    base = byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}) + 1;
+                    System.out.println("Received FINACK with seq no:" + ackn );
+    
+                    if (ds!=null) {
+                        finackAcknowledgement();
+                    }
+                    connClosed = true;
+                    return ;
+                }
+               
+            }else{
+                continue;
+            }
+        }
+}
     /**
      * Takes a byte array of data which is the first fragment of fragmented data, and then waits to 
      * receive the remaining packets of the fragment. It then reassembles the data and returns it
@@ -627,8 +708,9 @@ public class TTPConnection {
     ActionListener dataListener = new ActionListener(){
         public void actionPerformed(ActionEvent event){
             System.out.println("Ack timeout ");
-            if(unackedPackets.isEmpty()){
+            if(unackedPackets.isEmpty() || ds == null){
                 clock.stop();
+                unackedPackets.clear();
                 return;
             }
             Iterator<Entry<Integer, Datagram>> element = unackedPackets.entrySet().iterator();

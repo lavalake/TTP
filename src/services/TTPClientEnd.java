@@ -28,6 +28,7 @@ public class TTPClientEnd extends TTPConnection {
     }
 
     public void changeClockListener(){
+        
         clock.removeActionListener(handShakeListener);
         clock.addActionListener(dataListener);
     }
@@ -70,7 +71,7 @@ public class TTPClientEnd extends TTPConnection {
                 expectedSeq =  ackn + 1;
                 base = byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}) + 1;
                 System.out.println("Received SYNACK with seq no:" + ackn + " and Acknowledgement No " + (base-1));
-                
+                clock.stop();
                 SYNAcknowledgement();
                 changeClockListener();
                 return;
