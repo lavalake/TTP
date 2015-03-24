@@ -27,7 +27,7 @@ public class ServiceThread implements Runnable {
             data = ttp.receive();
             String fileName = new String(data, "US-ASCII");
 
-            System.out.println("Requested filename:" + fileName);
+            System.out.println("!!!!!!!!!!!!!!!!!!!!!Requested filename:" + fileName);
 
             //read file on the server to the data stream
             File file = new File(fileName);
@@ -40,9 +40,12 @@ public class ServiceThread implements Runnable {
             byte[] md5Hash = md.digest(fileData);
 
             //send md5 hash
+            System.out.println("!!!!!!!!!!!!!!!!!send md 5 !!!!!!!!!!!!!!!");
             ttp.send(md5Hash);
             //send the file data
+            System.out.println("!!!!!!!!!!!!!!!!!send file !!!!!!!!!!!!!!!");
             ttp.send(fileData);
+            System.out.println("!!!!!!!!!!!!!!!!!close !!!!!!!!!!!!!!!");
             ttp.close();
             System.out.println("Sent file to TTP");
 

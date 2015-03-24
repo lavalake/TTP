@@ -21,8 +21,18 @@ import datatypes.Datagram;
 public class TTPServerEnd extends TTPConnection {
     String sourceKey;
     
+    TTPServer server;
+    boolean connected;
 
 
+
+    public boolean isConnected() {
+        return connected;
+    }
+
+    public void setConnected(boolean connected) {
+        this.connected = connected;
+    }
 
     BlockingQueue<Datagram> dgQ;
     
@@ -31,11 +41,15 @@ public class TTPServerEnd extends TTPConnection {
         super(N, time);
         clock = new Timer(this.retrsTime,handShakeListener);
         clock.setInitialDelay(this.retrsTime);
+        retrnsNum = 0;
+        connected = false;
     }
 
-    public TTPServerEnd(int N, int time, DatagramService ds) {
+    public TTPServerEnd(int N, int time, DatagramService ds, TTPServer server) {
         this(N, time);
         this.ds = ds;
+        this.server = server;
+        
     }
 
     public String getSourceKey() {
@@ -64,7 +78,7 @@ public class TTPServerEnd extends TTPConnection {
         
         byte[] data;
         try {
-            System.out.println("TTPServerEnd waiting fro data");
+            //System.out.println("TTPServerEnd waiting fro data");
             recvdDg = dgQ.take();
             data = (byte[]) recvdDg.getData();
             return data;
@@ -79,7 +93,9 @@ public class TTPServerEnd extends TTPConnection {
     //server side close, wait for FIN from client
     public void close() throws IOException, ClassNotFoundException {
         System.out.println("server close the connection");
+        connClosed = true;
         //receive the FIN
+        changeCloseListener();
         while(true){
             byte[] data = receiveData();
             if(data[8] == (byte)1){
@@ -88,11 +104,13 @@ public class TTPServerEnd extends TTPConnection {
                 expectedSeq =  ackn + 1;
                 datagram.setSize((short) 9);
                 datagram.setData(fillHeader(FINACK));
-                datagram.setChecksum((short)0);
+                //datagram.setChecksum((short)0);
+                datagram.setChecksum(calcChecksum((byte[])datagram.getData()));
                 ds.sendDatagram(datagram);
 
                 System.out.println("FINACK sent to " + datagram.getDstaddr() + ":" + datagram.getDstport());
                 unackedPackets.put(nextSeq, datagram);
+                
                 clock.restart();
                 return;
             }
@@ -104,6 +122,12 @@ public class TTPServerEnd extends TTPConnection {
         clock.stop();
         clock.removeActionListener(handShakeListener);
         clock.addActionListener(dataListener);
+    }
+    
+    public void changeCloseListener(){
+        clock.stop();
+        clock.removeActionListener(dataListener);
+        clock.addActionListener(closeServer);
     }
     
     /**
@@ -121,6 +145,31 @@ public class TTPServerEnd extends TTPConnection {
             }
             
             clock.restart();
+            
+        }
+    };
+    
+    /**
+     *  Action listener for when the packet times out
+     */
+    
+    ActionListener closeServer = new ActionListener(){
+        public void actionPerformed(ActionEvent event){
+            System.out.println("Timeout for FINACK to :" + sourceKey);
+            try {
+                ds.sendDatagram(datagram);
+            } catch (IOException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+            if(retrnsNum > 10){
+                System.out.println("max retrns, delete the conn");
+                server.openConnections.remove(sourceKey);
+                clock.stop();
+            }else{
+                clock.restart();
+                retrnsNum++;
+            }
             
         }
     };

@@ -5,6 +5,7 @@ import java.awt.event.ActionListener;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Map.Entry;
@@ -21,7 +22,7 @@ public class TTPClientEnd extends TTPConnection {
     public TTPClientEnd(int N, int time) {
         super(N,time);
         this.N = N;
-
+        this.retrnsNum = 0;
         clock = new Timer(this.retrsTime,handShakeListener);
         clock.setInitialDelay(this.retrsTime);
 
@@ -54,8 +55,11 @@ public class TTPClientEnd extends TTPConnection {
         datagram.setDstport((short) destPort);
         datagram.setSize((short) 9);
         datagram.setData(fillHeader(TTPConnection.SYN));
-        datagram.setChecksum((short) -1);
+        //datagram.setChecksum((short) -1);
+        
+        datagram.setChecksum(calcChecksum((byte[])datagram.getData()));
         this.ds.sendDatagram(datagram);
+        System.out.println("data: "+ Arrays.toString(((byte[])datagram.getData())) + "chsum " + datagram.getChecksum());
         System.out.println("SYN sent to " + datagram.getDstaddr() + ":" + datagram.getDstport() + " with ISN " + nextSeq);
 
         base = nextSeq;
@@ -82,7 +86,8 @@ public class TTPClientEnd extends TTPConnection {
     public void close() throws IOException, ClassNotFoundException {
         datagram.setData(fillHeader(FIN));
         datagram.setSize((short)9);
-        datagram.setChecksum((short)-1);
+        //datagram.setChecksum((short)-1);
+        datagram.setChecksum(calcChecksum((byte[])datagram.getData()));
 
         ds.sendDatagram(datagram);
         System.out.println("FIN sent! Seq No:" + nextSeq);
@@ -91,10 +96,10 @@ public class TTPClientEnd extends TTPConnection {
         unackedPackets.put(nextSeq, new Datagram(datagram.getSrcaddr(), datagram.getDstaddr(), datagram.getSrcport(), datagram.getDstport(), datagram.getSize(), datagram.getChecksum(), datagram.getData()));
         
 
-        if(base == nextSeq){
-            System.out.println("start fin timer");
+        //if(base == nextSeq){
+            //System.out.println("start fin timer");
             clock.restart();
-        }
+        //}
         nextSeq++;
         //receive the FINACK
         while(true){
@@ -131,6 +136,14 @@ public class TTPClientEnd extends TTPConnection {
             
         }
     };
+    
+    public void changeCloseListener(){
+        clock.stop();
+        clock.removeActionListener(dataListener);
+        clock.addActionListener(closeClient);
+    }
+    
+    
 
 
 }

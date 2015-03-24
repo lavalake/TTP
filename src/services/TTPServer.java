@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -14,7 +15,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.TimerTask;
 import java.util.concurrent.BlockingQueue;
-
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import javax.swing.Timer;
@@ -23,7 +24,7 @@ import services.DatagramService;
 import datatypes.Datagram;
 
 public class TTPServer extends TTPConnection {
-    private HashMap<String, TTPServerEnd> openConnections= new HashMap<String, TTPServerEnd>();
+    public ConcurrentHashMap<String, TTPServerEnd> openConnections= new ConcurrentHashMap<String, TTPServerEnd>();
     
 
     public TTPServer(int N, int time) {
@@ -67,10 +68,16 @@ public void open(int srcPort, int ver){
             byte[] data = (byte[]) request.getData();
             TTPServerEnd server_endPoint = null;
             String sourceKey = request.getSrcaddr() + ":" + request.getSrcport();
-            System.out.println("TTPServer receive dg " + data[8]);
+            
+            //System.out.println("TTPServer receive dg " + data[8]);
+            //System.out.println("data: "+ Arrays.toString(data)+ "chsum " + request.getChecksum());
             if (data[8] == (byte)4) {
+                if (calcChecksum(data) != request.getChecksum()){
+                    System.out.println("TTPServer receive SYN with bad checksum");
+                    continue;
+                }
                 if(!openConnections.containsKey(sourceKey)) {
-                    server_endPoint = new TTPServerEnd(N, retrsTime,ds);
+                    server_endPoint = new TTPServerEnd(N, retrsTime,ds, this);
                     openConnections.put(sourceKey, server_endPoint);
                     ackn = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
                     Random rand = new Random();
@@ -108,11 +115,20 @@ public void open(int srcPort, int ver){
                 }
             }
             else if (data[8] == (byte)6) {  
+                if (calcChecksum(data) != request.getChecksum()){
+                    System.out.println("TTPServer receive SYNACN with bad checksum");
+                    continue;
+                }
                 if(openConnections.containsKey(sourceKey)) {
                     
                     server_endPoint = openConnections.get(sourceKey);
+                    if(server_endPoint.isConnected()){
+                        System.out.println("duplicated SYNACK");
+                        continue;
+                    }
                     server_endPoint.stopClock();
                     server_endPoint.changeClockListener();
+                    server_endPoint.setConnected(true);
                     //acknNum = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
                     //expectedSeqNum =  acknNum + 1;
                     base = byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}) + 1;
@@ -128,6 +144,10 @@ public void open(int srcPort, int ver){
                 }
             }
             else if (data[8]== (byte)16) {
+                if (calcChecksum(data) != request.getChecksum()){
+                    System.out.println("TTPServer receive FINACKACK with bad checksum");
+                    continue;
+                }
                 if(openConnections.containsKey(sourceKey)) {
                     server_endPoint = openConnections.get(sourceKey);
                     server_endPoint.stopClock();
@@ -136,10 +156,16 @@ public void open(int srcPort, int ver){
                 }
             }
             else {
+                if (calcChecksum(data) != request.getChecksum()){
+                    System.out.println("TTPServer receive ACK/DATA with bad checksum");
+                    continue;
+                }
                 if(openConnections.containsKey(sourceKey)) {
-                    System.out.println("Received ACK/REQUEST from existing client");
+                    
+                    //System.out.println("Received ACK/DATA from existing client");
                     //use blockingQueue to notify the connection end
                     server_endPoint = openConnections.get(sourceKey);
+                    
                     try {
                         if (server_endPoint.getDgQ() != null)
                             server_endPoint.getDgQ().put(request);

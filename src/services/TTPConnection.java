@@ -22,6 +22,7 @@ public class TTPConnection {
     protected DatagramService ds;
     protected Datagram datagram;
     String sourceKey;
+    int retrnsNum;
 
     protected Datagram recvdDg;
     //sliding window variables
@@ -330,11 +331,11 @@ public class TTPConnection {
                     System.out.println("len " + length + " nextSeqNum" + nextSeq + " base" + base + " N" + N);
                     while(nextSeq >= base + N){
                         try {
-                            System.out.println("sending window full, start timer and wait for ack");
+                            //System.out.println("sending window full, start timer and wait for ack");
                             
                             receiveAck();
                             if(connClosed == true)
-                                return -1;
+                                return data.length - length;
                         } catch (ClassNotFoundException e) {
                             // TODO Auto-generated catch block
                             e.printStackTrace();
@@ -408,9 +409,9 @@ public class TTPConnection {
         
         while(true){
             byte[] data = receiveData();
-            System.out.println("receive got data");
+            //System.out.println("receive got data");
             byte[] pdu = null;
-            System.out.println("datagram size "+ recvdDg.getSize() + "flag " + data[FLAG]);
+            //System.out.println("datagram size "+ recvdDg.getSize() + "flag " + data[FLAG]);
             if (recvdDg.getSize() <= HEADERLEN) {
                 
                 if (data[FLAG] == (byte)SYNACK) {               
@@ -441,10 +442,10 @@ public class TTPConnection {
                     //if there are unacked packets, restart the timer. Othewise, dont.
                     
                     if(!unackedPackets.isEmpty()){
-                        System.out.println("unack not empty, restart timer");
+                        //System.out.println("unack not empty, restart timer");
                         clock.restart();
                     }else{
-                        System.out.println("unack  empty, stop timer");
+                        //System.out.println("unack  empty, stop timer");
                         clock.stop();
                     }
                     continue;
@@ -456,7 +457,8 @@ public class TTPConnection {
                     expectedSeq =  ackn + 1;
                     datagram.setSize((short) 9);
                     datagram.setData(fillHeader(FINACK));
-                    datagram.setChecksum((short)-1);
+                    //datagram.setChecksum((short)-1);
+                    datagram.setChecksum(calcChecksum((byte[])datagram.getData()));
                     ds.sendDatagram(datagram);
     
                     clock.restart();
@@ -522,13 +524,13 @@ public class TTPConnection {
         }
     }
 
-public void receiveAck() throws IOException, ClassNotFoundException {
+public int receiveAck() throws IOException, ClassNotFoundException {
         
         while(true){
             byte[] data = receiveData();
-            System.out.println("receiveAck got data");
+            //System.out.println("receiveAck got data");
             byte[] pdu = null;
-            System.out.println("datagram size "+ recvdDg.getSize() + "flag " + data[FLAG]);
+            //System.out.println("datagram size "+ recvdDg.getSize() + "flag " + data[FLAG] + "sq " + byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}));
             if (recvdDg.getSize() <= HEADERLEN) {
                 
                 if (data[FLAG] == (byte)SYNACK) {               
@@ -547,9 +549,18 @@ public void receiveAck() throws IOException, ClassNotFoundException {
                     continue;
                 }
                 if(data[FLAG]== (byte)ACK) {
-                    base = byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}) + 1;
+                    int sn = byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}) + 1;
+                    
                     System.out.println("Received ACK for packet no:" + byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}) + "restart timer");
-    
+                    if(sn > base+N){
+                        System.out.println("ack sn is larger than window upper limit ");
+                        continue;
+                    }
+                    if(sn < base){
+                        System.out.println("ack sn is smaller than window lower limit ");
+                        continue;
+                    }
+                    base = sn;
                     Set<Integer> keys = unackedPackets.keySet();
                     for (Integer i: keys) {
                         if (i< base) {
@@ -559,43 +570,24 @@ public void receiveAck() throws IOException, ClassNotFoundException {
                     //if there are unacked packets, restart the timer. Othewise, dont.
                     
                     if(!unackedPackets.isEmpty()){
-                        System.out.println("unack not empty, restart timer");
+                        //System.out.println("unack not empty, restart timer");
                         clock.restart();
                     }else{
-                        System.out.println("unack  empty, stop timer");
+                        //System.out.println("unack  empty, stop timer");
                         clock.stop();
                     }
-                    return;
+                    return 1;
                 }
                 if(data[FLAG] == (byte)FIN){
-                    unackedPackets.clear();
+                    
+                    
                     System.out.println("receive FIN from " + datagram.getDstaddr() + ":" + datagram.getDstport() + " send FINACK");
-                    ackn = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
-                    expectedSeq =  ackn + 1;
-                    datagram.setSize((short) 9);
-                    datagram.setData(fillHeader(FINACK));
-                    datagram.setChecksum((short)-1);
-                    ds.sendDatagram(datagram);
-    
-                    clock.restart();
-                    //unackedPackets.put(nextSeq, new Datagram(datagram.getSrcaddr(), datagram.getDstaddr(), datagram.getSrcport(), datagram.getDstport(), datagram.getSize(), datagram.getChecksum(), datagram.getData()));
-                    //nextSeq++;
-                    //far end close the connection, just return a null to let app layer to konw that
+                     
                     connClosed = true;
-                    return ;
+                    return -1;
+                    
                 }
-                if(data[FLAG]== (byte)FINACK) {
-                    ackn = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
-                    expectedSeq =  ackn + 1;
-                    base = byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}) + 1;
-                    System.out.println("Received FINACK with seq no:" + ackn );
-    
-                    if (ds!=null) {
-                        finackAcknowledgement();
-                    }
-                    connClosed = true;
-                    return ;
-                }
+                
                
             }else{
                 continue;
@@ -659,7 +651,8 @@ public void receiveAck() throws IOException, ClassNotFoundException {
     protected void acknowledgement() throws IOException {
         datagram.setSize((short)9);
         datagram.setData(fillHeader(ACK));
-        datagram.setChecksum((short)0);
+        //datagram.setChecksum((short)0);
+        datagram.setChecksum(calcChecksum((byte[])datagram.getData()));
         if(ds != null){
             ds.sendDatagram(datagram);
             System.out.println("Acknowledgement sent! No:" + ackn);
@@ -669,7 +662,8 @@ public void receiveAck() throws IOException, ClassNotFoundException {
     protected void SYNAcknowledgement() throws IOException {
         datagram.setSize((short)9);
         datagram.setData(fillHeader(SYNACK));
-        datagram.setChecksum((short)0);
+        //datagram.setChecksum((short)0);
+        datagram.setChecksum(calcChecksum((byte[])datagram.getData()));
         if(ds != null){
             ds.sendDatagram(datagram);
             System.out.println("Acknowledgement sent! No:" + ackn);
@@ -680,15 +674,17 @@ public void receiveAck() throws IOException, ClassNotFoundException {
         
         datagram.setSize((short)9);
         datagram.setData(fillHeader(FINACKACK));
-        datagram.setChecksum((short)0);
+        //datagram.setChecksum((short)0);
+        
+        datagram.setChecksum(calcChecksum((byte[])datagram.getData()));
         if(ds != null){
             ds.sendDatagram(datagram);
             System.out.println("Acknowledgement for FINACK seq:" + ackn);
         }
         
         nextSeq++;
-        clock.removeActionListener(dataListener);
-        clock.addActionListener(closeClient);
+        clock.removeActionListener(closeClient);
+        clock.addActionListener(finalAck);
         clock.restart();
         
     }
@@ -708,8 +704,9 @@ public void receiveAck() throws IOException, ClassNotFoundException {
      */
     ActionListener dataListener = new ActionListener(){
         public void actionPerformed(ActionEvent event){
-            System.out.println("Ack timeout ");
-            if(unackedPackets.isEmpty() || ds == null){
+            //System.out.println("Ack timeout ");
+            if(ds == null || connClosed == true){
+                System.out.println("conn closed, stop the timer");
                 clock.stop();
                 unackedPackets.clear();
                 return;
@@ -734,12 +731,37 @@ public void receiveAck() throws IOException, ClassNotFoundException {
     /**
      *  Timeout listener for  the FINACKACK message
      */
-    ActionListener closeClient = new ActionListener(){
+    ActionListener finalAck = new ActionListener(){
         public void actionPerformed(ActionEvent event){
             clock.stop();
             ds = null;
             
             System.out.println("TTP Client connection closesed !");
+        }
+    };
+    
+    /**
+     *  Action listener for when the packet times out
+     */
+    
+    ActionListener closeClient = new ActionListener(){
+        public void actionPerformed(ActionEvent event){
+            System.out.println("Timeout for FIN to :" + sourceKey + "retran number " + retrnsNum);
+            try {
+                ds.sendDatagram(datagram);
+            } catch (IOException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+            if(retrnsNum > 10){
+                System.out.println("max retrns, delete the conn");
+                
+                clock.stop();
+            }else{
+                clock.restart();
+                retrnsNum++;
+            }
+            
         }
     };
 

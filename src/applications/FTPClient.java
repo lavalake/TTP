@@ -56,19 +56,19 @@ public class FTPClient {
             }
             //receive md5 hash code
             else if (msgReceived != null){
-                System.out.println("Received md5 hash");
+                System.out.println("!!!!!!!!!!!!!!!!!!!Received md5 hash!!!!!!!!!!!!!!!!");
 
                 //receive file date
                 byte[] data = client.receive();
                 if (data != null){
-                    System.out.println("Received file and start to check md5");
+                    System.out.println("!!!!!!!!!!!!!!!!!Received file and start to check md5!!!!!!!!!!!!!!!");
 
                     MessageDigest complete = MessageDigest.getInstance("MD5");
                     byte[] md5Check = complete.digest(data);
 
                     //check and verify md5
                     if (Arrays.equals(md5Check, msgReceived)){
-                        System.out.println("md5 checked and validated");
+                        System.out.println("!!!!!!!!!!!!md5 checked and validated");
                         File newFile = new File(path + fileName);
                         FileOutputStream fs = new FileOutputStream(newFile);
                         BufferedOutputStream bs = new BufferedOutputStream(fs);

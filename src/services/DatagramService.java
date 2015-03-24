@@ -46,19 +46,19 @@ public class DatagramService {
 		ObjectOutputStream oStream = new ObjectOutputStream(bStream);
 
         //Testing for packet corruption
-/*        if (num % 11 == 0) {
+        if (num % 6 == 0) {
             byte[] temp = (byte[])datagram.getData();
             temp[temp.length - 1] = (byte)(temp[temp.length -1]^1);
             datagram.setData(temp);
             System.out.println("Testing for packet corruption");
         }
-*/
+
         oStream.writeObject(datagram);
 		oStream.flush();
 
         //Creating random number for testing different situations
         Random numGenerator = new Random();
-        System.out.println("Count number " + num);
+        //System.out.println("Count number " + num);
 
 		// Create Datagram Packet
 		byte[] data = bStream.toByteArray();
@@ -66,29 +66,29 @@ public class DatagramService {
 
 		DatagramPacket packet = new DatagramPacket(data, data.length,
 				IPAddress, datagram.getDstport());
-/*
+
         //Testing for delay packet
-        if (num % 13 == 0){
+        if (num % 16 == 0){
             int randomNum = numGenerator.nextInt(7);
             delayPacket(packet, randomNum * 1000 + 3000);
             System.out.println("Testing for delay packet, delaying " + randomNum + "seconds");
         }
 		//Testing for duplicate packet
-        if (num % 17 == 0) {
+        if (num % 10 == 0) {
             int randomNum = numGenerator.nextInt(5);
             duplicatePacket(packet, randomNum);
             System.out.println("Testing for duplicate packet, duplicating " + randomNum + "times");
         }
 
         //Testing for packet drop
-        if (num % 7 == 0)
+        if (num % 5 == 0)
             System.out.println("Testing for packet drop");
         else {
-            System.out.println("Send Packet");
+            //System.out.println("Send Packet");
             socket.send(packet);
         }
-        */
-		socket.send(packet);
+        
+		//socket.send(packet);
 //        if (num % 7 == 0) {
 //            //Store packet to arraylist to do out-of-order deliveries testing
 //            if (bufferPacket == null)
