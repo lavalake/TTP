@@ -86,14 +86,16 @@ public class TTPClientEnd extends TTPConnection {
 
         ds.sendDatagram(datagram);
         System.out.println("FIN sent! Seq No:" + nextSeq);
+        unackedPackets.clear();
 
         unackedPackets.put(nextSeq, new Datagram(datagram.getSrcaddr(), datagram.getDstaddr(), datagram.getSrcport(), datagram.getDstport(), datagram.getSize(), datagram.getChecksum(), datagram.getData()));
-        nextSeq++;
+        
 
         if(base == nextSeq){
             System.out.println("start fin timer");
             clock.restart();
         }
+        nextSeq++;
         //receive the FINACK
         while(true){
             byte[] data = receiveData();

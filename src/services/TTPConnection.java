@@ -353,7 +353,7 @@ public class TTPConnection {
                 while(nextSeq >= base + N){
                     try {
                         System.out.println("reach full send window " + nextSeq +" "+ base + " " + N);
-                        receive();
+                        receiveAck();
                         if(connClosed == true)
                             return -1;
                     } catch (ClassNotFoundException e) {
@@ -544,6 +544,7 @@ public void receiveAck() throws IOException, ClassNotFoundException {
                         }
                     }
                     SYNAcknowledgement();
+                    continue;
                 }
                 if(data[FLAG]== (byte)ACK) {
                     base = byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}) + 1;
