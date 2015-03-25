@@ -72,7 +72,7 @@ public void open(int srcPort, int ver){
             
             //System.out.println("TTPServer receive dg " + data[8]);
             //System.out.println("data: "+ Arrays.toString(data)+ "chsum " + request.getChecksum());
-            if (data[8] == (byte)4) {
+            if (data[8] == (byte)SYN) {
                 if (calcChecksum(data) != request.getChecksum()){
                     System.out.println("TTPServer receive SYN with bad checksum");
                     continue;
@@ -115,7 +115,7 @@ public void open(int srcPort, int ver){
                               
                 }
             }
-            else if (data[8] == (byte)6) {  
+            else if (data[8] == (byte)SYNACK) {  
                 if (calcChecksum(data) != request.getChecksum()){
                     System.out.println("TTPServer receive SYNACN with bad checksum");
                     continue;
@@ -144,7 +144,7 @@ public void open(int srcPort, int ver){
                     return server_endPoint;
                 }
             }
-            else if (data[8]== (byte)16) {
+            else if (data[8]== (byte)FINACKACK) {
                 if (calcChecksum(data) != request.getChecksum()){
                     System.out.println("TTPServer receive FINACKACK with bad checksum");
                     continue;

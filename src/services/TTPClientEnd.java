@@ -59,7 +59,7 @@ public class TTPClientEnd extends TTPConnection {
         
         datagram.setChecksum(calcChecksum((byte[])datagram.getData()));
         this.ds.sendDatagram(datagram);
-        System.out.println("data: "+ Arrays.toString(((byte[])datagram.getData())) + "chsum " + datagram.getChecksum());
+        //System.out.println("data: "+ Arrays.toString(((byte[])datagram.getData())) + "chsum " + datagram.getChecksum());
         System.out.println("SYN sent to " + datagram.getDstaddr() + ":" + datagram.getDstport() + " with ISN " + nextSeq);
 
         base = nextSeq;
@@ -69,7 +69,7 @@ public class TTPClientEnd extends TTPConnection {
         while(true){
             Datagram request = ds.receiveDatagram(); 
             byte[] data = (byte[]) request.getData();
-            if (data[8] == (byte)6) {  
+            if (data[8] == (byte)SYNACK) {  
                 
                 ackn = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
                 expectedSeq =  ackn + 1;
@@ -111,7 +111,7 @@ public class TTPClientEnd extends TTPConnection {
         //receive the FINACK
         while(true){
             byte[] data = receiveData();
-            if(data[8]== (byte)3) {
+            if(data[8]== (byte)FINACK) {
                 ackn = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
                 expectedSeq =  ackn + 1;
                 base = byteArrayToInt(new byte[]{ data[4], data[5], data[6], data[7]}) + 1;

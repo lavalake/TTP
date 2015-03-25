@@ -40,11 +40,11 @@ public class TTPConnection {
     
 
     
-    public static final int FIN = 1;
+    public static final int FIN = 4;
     public static final int ACK = 2;
-    public static final int FINACK = 3;
-    public static final int SYN = 4;
-    public static final int SYNACK = 6;
+    public static final int FINACK = 6;
+    public static final int SYN = 1;
+    public static final int SYNACK = 3;
     public static final int END = 8;    
     public static final int FINACKACK = 16;
     public static final int DATA = 0;
@@ -329,7 +329,7 @@ public class TTPConnection {
                         fragment[i % MAXLEN] = data[i];
                     }
                     //need to wait for the ack to move forward
-                    System.out.println("len " + length + " nextSeqNum" + nextSeq + " base" + base + " N" + N);
+                    //System.out.println("len " + length + " nextSeqNum" + nextSeq + " base" + base + " N" + N);
                     while(nextSeq >= base + N){
                         try {
                             //System.out.println("sending window full, start timer and wait for ack");
@@ -669,7 +669,7 @@ public int receiveAck() throws IOException, ClassNotFoundException {
         datagram.setChecksum(calcChecksum((byte[])datagram.getData()));
         if(ds != null){
             ds.sendDatagram(datagram);
-            System.out.println("Acknowledgement sent! No:" + ackn);
+            System.out.println("Acknowledgement for No:" + ackn);
         }
     }
     
@@ -680,7 +680,7 @@ public int receiveAck() throws IOException, ClassNotFoundException {
         datagram.setChecksum(calcChecksum((byte[])datagram.getData()));
         if(ds != null){
             ds.sendDatagram(datagram);
-            System.out.println("Acknowledgement sent! No:" + ackn);
+            System.out.println("Acknowledgement for No:" + ackn);
         }
     }
 
@@ -720,7 +720,7 @@ public int receiveAck() throws IOException, ClassNotFoundException {
         public void actionPerformed(ActionEvent event){
             //System.out.println("Ack timeout ");
             if(ds == null || connClosed == true){
-                System.out.println("conn closed, stop the timer");
+                //System.out.println("conn closed, stop the timer");
                 clock.stop();
                 unackedPackets.clear();
                 return;

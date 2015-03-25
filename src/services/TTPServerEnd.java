@@ -104,7 +104,7 @@ public class TTPServerEnd extends TTPConnection {
         changeCloseListener();
         while(true){
             byte[] data = receiveData();
-            if(data[8] == (byte)1){
+            if(data[8] == (byte)FIN){
                 unackedPackets.clear();
                 ackn = byteArrayToInt(new byte[]{ data[0], data[1], data[2], data[3]});
                 expectedSeq =  ackn + 1;

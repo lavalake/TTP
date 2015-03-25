@@ -89,7 +89,7 @@ public class DatagramService {
             socket.send(packet);
         }
        
-		//socket.send(packet);
+		
 	}
 
 	public Datagram receiveDatagram() throws IOException,
