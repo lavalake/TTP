@@ -68,7 +68,7 @@ public class TTPServerEnd extends TTPConnection {
         this.dgQ = dgQ;
     }
     /**
-     * The receive data function . It reads the incoming packets
+     * The receive data function . It reads the incoming packets from the blockingQueue
      * 
      * @return
      * @throws IOException
@@ -90,7 +90,13 @@ public class TTPServerEnd extends TTPConnection {
         
     }
     
-    //server side close, wait for FIN from client
+    /**
+     * Called by the server application layer protocol to close the connection. 
+     * wait for the FIN from client and send FINACK
+     * 
+     * @throws IOException
+     * @throws ClassNotFoundException
+     */
     public void close() throws IOException, ClassNotFoundException {
         System.out.println("server close the connection");
         connClosed = true;
@@ -150,7 +156,7 @@ public class TTPServerEnd extends TTPConnection {
     };
     
     /**
-     *  Action listener for when the packet times out
+     *  Action listener for when the FINACK times out
      */
     
     ActionListener closeServer = new ActionListener(){

@@ -83,6 +83,13 @@ public class TTPClientEnd extends TTPConnection {
         }
     }
 
+    /**
+     * Called by the application layer protocol to close the connection. 
+     * Send FIN to server and waiting for the FINACK
+     * 
+     * @throws IOException
+     * @throws ClassNotFoundException
+     */
     public void close() throws IOException, ClassNotFoundException {
         datagram.setData(fillHeader(FIN));
         datagram.setSize((short)9);

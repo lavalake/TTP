@@ -54,10 +54,11 @@ public void open(int srcPort, int ver){
 
     
     /**
-     * Called by the application layer protocol. Continuously listens on the specified port and creates
-     * a new TTP connection end point for every connection request
+     * Called by the application layer protocol. Continuously receive datagram from lower layer and creates
+     * a new TTP connection end point for every connection request. For the packets for existing connections
+     * send to the blockQueue of the connection
      * 
-     * @return
+     * @return TTPServerEnd
      * @throws IOException
      * @throws ClassNotFoundException
      */

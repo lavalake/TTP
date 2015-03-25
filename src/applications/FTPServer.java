@@ -17,7 +17,7 @@ public class FTPServer{
 
         System.out.println("Enter the port number");
 //        int port = Integer.parseInt(args[2]);
-        int port = 2221;
+        int port = 1222;
 		System.out.println("FTP Server starts to listen (Port " + port + ")");
 		
 		try {

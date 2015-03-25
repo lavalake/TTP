@@ -128,7 +128,7 @@ public class TTPConnection {
      * Acknowledgement number and header flags
      * 
      * @param flags
-     * @return
+     * @return byte[]
      */
     protected byte[] fillHeader(int flags) {
         
@@ -229,7 +229,7 @@ public class TTPConnection {
      * Takes a byte array of data and calculates the checksum according to the UDP checksum discussed in class
      * 
      * @param payload
-     * @return
+     * @return short
      * @throws IOException
      */
     
@@ -306,6 +306,7 @@ public class TTPConnection {
      * 
      * @param data
      * @throws IOException
+     * @return int
      */
     
     public int send(byte[] data) throws IOException {
@@ -401,7 +402,7 @@ public class TTPConnection {
      * The receive data function for the client side. It reads the incoming packets, and according
      * to the packet, it sends it up to the FTP client
      * 
-     * @return
+     * @return byte[]
      * @throws IOException
      * @throws ClassNotFoundException
      */
@@ -483,7 +484,7 @@ public class TTPConnection {
                
             }else{
                 int seqNum = byteArrayToInt(new byte[] { data[0], data[1], data[2], data[3]});
-                //System.out.println("seqNum " + seqNum + " expected "+ expectedSeq);
+                System.out.println("seqNum " + seqNum + " expected "+ expectedSeq);
                 if(byteArrayToInt(new byte[] { data[0], data[1], data[2], data[3]}) == expectedSeq) {
                     if (calcChecksum(data) != recvdDg.getChecksum()) {
                         System.out.println("packet " + seqNum + "Checksum error!!");
@@ -523,7 +524,15 @@ public class TTPConnection {
             return pdu;
         }
     }
-
+    /**
+     * receive acknowledgment after send the packets. It will be called by send()
+     * when the sending window is full
+     * 
+     * @param payload
+     * @return short
+     * @throws IOException
+     * @return int
+     */
 public int receiveAck() throws IOException, ClassNotFoundException {
         
         while(true){
@@ -595,11 +604,11 @@ public int receiveAck() throws IOException, ClassNotFoundException {
         }
 }
     /**
-     * Takes a byte array of data which is the first fragment of fragmented data, and then waits to 
-     * receive the remaining packets of the fragment. It then reassembles the data and returns it
+     * Takes a byte array of data from the first fragment of fragmented data, and  waits to 
+     * receive the remaining fragments. It then reassembles the data and returns it
      * 
-     * @param data2
-     * @return
+     * @param packet
+     * @return ArrayList<Byte>
      * @throws IOException
      * @throws ClassNotFoundException
      */
@@ -616,29 +625,34 @@ public int receiveAck() throws IOException, ClassNotFoundException {
             int seqNum = byteArrayToInt(new byte[] { data[0], data[1], data[2], data[3]});
             
             System.out.println("reasamble seqNum " + seqNum + " expected " + expectedSeq + " flag " + data[FLAG]);
-            if(byteArrayToInt(new byte[] { data[0], data[1], data[2], data[3]}) == expectedSeq) {
+            if (calcChecksum(data) != recvdDg.getChecksum()){
+                System.out.println("checksum failed seqNum "+seqNum);
+                acknowledgement();
+            }else if(byteArrayToInt(new byte[] { data[0], data[1], data[2], data[3]}) == expectedSeq) {
                 for(int i=9;i < data.length;i++) {
                     totalData.add(data[i]);
                 }
                 ackn = byteArrayToInt(new byte[] { data[0], data[1], data[2], data[3]});
 
-                acknowledgement();
+                
                 nextSeq++;
                 expectedSeq++;
-
+                acknowledgement();
                 if(data[FLAG]==END) {
+                    
                     break;
                 }
-                else if(data[FLAG]==DATA) {
-                    continue;
-                }
+                
             }
             else {
                 acknowledgement();
             }
+            
         }
+        
         return totalData;
     }
+
 
     public String getSourceKey() {
         return sourceKey;
@@ -700,7 +714,7 @@ public int receiveAck() throws IOException, ClassNotFoundException {
     }
     
     /**
-     *  Action listener for when the packet times out
+     *  Action listener for when the packet times out waiting for ACK
      */
     ActionListener dataListener = new ActionListener(){
         public void actionPerformed(ActionEvent event){

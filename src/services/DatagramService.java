@@ -46,12 +46,13 @@ public class DatagramService {
 		ObjectOutputStream oStream = new ObjectOutputStream(bStream);
 
         //Testing for packet corruption
-        if (num % 6 == 0) {
+        if (num % 7 == 0) {
             byte[] temp = (byte[])datagram.getData();
             temp[temp.length - 1] = (byte)(temp[temp.length -1]^1);
             datagram.setData(temp);
             System.out.println("Testing for packet corruption");
         }
+        
 
         oStream.writeObject(datagram);
 		oStream.flush();
@@ -87,28 +88,8 @@ public class DatagramService {
             //System.out.println("Send Packet");
             socket.send(packet);
         }
-        
+       
 		//socket.send(packet);
-//        if (num % 7 == 0) {
-//            //Store packet to arraylist to do out-of-order deliveries testing
-//            if (bufferPacket == null)
-//                bufferPacket = new ArrayList<DatagramPacket>();
-//            bufferPacket.add(packet);
-//            System.out.println("Add to packet buffer");
-//        }
-//        else {
-//            if (bufferPacket != null){
-//                System.out.println("Testing for packet out-of-order deliveries");
-//                bufferPacket.add(packet);
-//                Collections.shuffle(bufferPacket);
-//                for (DatagramPacket p : bufferPacket)
-//                    socket.send(p);
-//
-//                bufferPacket = null;
-//            } else {
-//
-//            }
-//        }
 	}
 
 	public Datagram receiveDatagram() throws IOException,
