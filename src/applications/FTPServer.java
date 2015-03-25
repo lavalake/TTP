@@ -9,11 +9,16 @@ import services.TTPServerEnd;
 public class FTPServer{
 
 	public static void main(String[] args) {
+	    if(args.length != 2){
+            System.out.println("worng input arguments, usage: java applications.FTPServer <N> <time>");
+            return;
+        }
 		
 		TTPServer ttp_server = new TTPServer(Integer.parseInt(args[0]), Integer.parseInt(args[1]));
 
 		boolean listening = true;
 		TTPServerEnd serverEnd;
+		
 
         //System.out.println("Enter the port number");
 //        int port = Integer.parseInt(args[2]);

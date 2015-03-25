@@ -15,6 +15,11 @@ import services.*;
 public class FTPClient {
 
 	public static void main(String[] args) {
+	    
+	    if(args.length != 3){
+	        System.out.println("worng input arguments, usage: java applications.FTPClient <N> <time> <port>");
+	        return;
+	    }
 
         TTPClientEnd client = new TTPClientEnd(Integer.parseInt(args[0]), Integer.parseInt(args[1]));
 
@@ -23,7 +28,12 @@ public class FTPClient {
         String dstAddr = "127.0.0.1";
         int dstPort = 1222;
         int srcPort = Integer.parseInt(args[2]);
-
+        File dirFile = new File("recdFiles");
+        if(!dirFile.exists()){
+            if(!dirFile.mkdir()){
+                System.out.println("create dir failure");
+            }
+        }
 		System.out.println("Enter the request file name");
 		Scanner requestFile = new Scanner(System.in);
 		String fileName = requestFile.nextLine();
